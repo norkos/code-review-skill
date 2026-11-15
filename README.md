@@ -478,7 +478,9 @@ Focus on: security, performance, and maintainability.
 
 ### &#129309; Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+> **Note:** This fork is for learning purposes only. I recommend contributing to the main project, [`awesome-skills/code-review-skill`](https://github.com/awesome-skills/code-review-skill), rather than to this fork.
+
+Contributions are welcome in the main project! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
 **Ideas:**
 - New language guides (Elixir, Scala, Lua...)

@@ -7,13 +7,11 @@
 </p>
 
 <p>
-  <a href="https://github.com/awesome-skills/code-review-skill/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/License-MIT-22c55e?style=flat-square" alt="License: MIT"/>
-  </a>
-  <img src="https://img.shields.io/badge/Claude_Code-Skill-7c3aed?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code Skill"/>
-  <img src="https://img.shields.io/badge/Total_Lines-21%2C000%2B-3b82f6?style=flat-square" alt="21000+ lines"/>
-  <img src="https://img.shields.io/badge/Languages-20%2B-f59e0b?style=flat-square" alt="20+ languages"/>
-  <img src="https://img.shields.io/badge/PRs-Welcome-ec4899?style=flat-square" alt="PRs Welcome"/>
+  <a href="./LICENSE">License: MIT</a>
+  &middot; Claude Code Skill
+  &middot; 21,000+ lines
+  &middot; 20+ languages
+  &middot; PRs welcome
 </p>
 
 <p>
@@ -29,6 +27,24 @@
 **Code Review Skill** is a production-ready skill for [Claude Code](https://claude.ai/code) that transforms AI-assisted code review from vague suggestions into a **structured, consistent, and expert-level** process.
 
 It covers **20+ languages and frameworks** with over **21,000 lines** of carefully curated review guidelines — loaded progressively to minimize context window usage.
+
+This repository is a **fork** of [`awesome-skills/code-review-skill`](https://github.com/awesome-skills/code-review-skill) and has been changed compared to the original version — most notably, all content is English-only and the web page makes no outside requests. See [Differences from the Original](#differences-from-the-original) below for the full list.
+
+---
+
+### Differences from the Original
+
+This repository is a fork of [`awesome-skills/code-review-skill`](https://github.com/awesome-skills/code-review-skill). Changes compared to the original:
+
+- **English only** — All Chinese content was translated to English: `SKILL.md`, `CONTRIBUTING.md`, every guide in `reference/` (including code comments in examples), and the internal notes in `.hive/`. Table-of-contents links were updated to match the new English headings.
+- **Single-language README** — The duplicate Chinese section of this README and the language links were removed.
+- **Single-language web page** — `index.en.html` became `index.html`; the Chinese page and the language switcher were removed.
+- **No outside requests from the web page** — `index.html` no longer loads the IBM Plex Mono font from Google Fonts and uses the system monospace font instead, so opening it contacts no third-party servers.
+- **No outside requests from the README** — The shields.io badge images were replaced with plain text.
+- **Install instructions point to this fork** — in both this README and `index.html`; see the Installation section below.
+- **Small fix** — A wrong symbol (`❂` instead of `❌`) in an example in `reference/angular.md`.
+
+The review guidance itself (rules, examples, checklists) is unchanged apart from translation. The skill sends no data anywhere: `scripts/pr-analyzer.py` only reads a diff and prints a report, and everything else is plain Markdown.
 
 ---
 
@@ -324,23 +340,35 @@ code-review-skill/
 
 ### &#128640; Installation
 
+> **Note:** The instructions below install this English-only fork from [`norkos/code-review-skill`](https://github.com/norkos/code-review-skill). If you would like to install the original version instead, follow the installation instructions in the README of the original repository, [`awesome-skills/code-review-skill`](https://github.com/awesome-skills/code-review-skill). The original version still contains Chinese content.
+
 **Install with `npx skills` (Cursor, Claude Code, Codex, OpenCode, and other agents):**
 
 ```bash
-npx skills add awesome-skills/code-review-skill
+npx skills add norkos/code-review-skill
 ```
 
 The skills CLI finds `SKILL.md` at the repo root. Do not nest this skill under `skills/`.
+
+**Or install from a local clone:**
+
+```bash
+npx skills add ./code-review-skill
+```
+
+A path source (anything starting with `./`, `../`, `.\` or an absolute path) installs the files from that folder on disk, including uncommitted changes. It does not download anything from GitHub. By default the CLI links to the folder, so later edits show up immediately; add `--copy` to install a fixed snapshot instead.
+
+> The `skills` CLI sends anonymous usage data. Set `DISABLE_TELEMETRY=1` (PowerShell: `$env:DISABLE_TELEMETRY=1`) before running it to opt out. This skill itself does not send any data.
 
 **Or clone into the Claude Code skills directory:**
 
 ```bash
 # macOS / Linux
-git clone https://github.com/awesome-skills/code-review-skill.git \
+git clone https://github.com/norkos/code-review-skill.git \
   ~/.claude/skills/code-review-skill
 
 # Windows (PowerShell)
-git clone https://github.com/awesome-skills/code-review-skill.git `
+git clone https://github.com/norkos/code-review-skill.git `
   "$env:USERPROFILE\.claude\skills\code-review-skill"
 ```
 
@@ -462,7 +490,7 @@ Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelin
 
 ### &#128196; License
 
-MIT &copy; [awesome-skills](https://github.com/awesome-skills)
+MIT &copy; 2025 [awesome-skills](https://github.com/awesome-skills) (original work), &copy; 2026 [norkos](https://github.com/norkos) (fork modifications). See [LICENSE](./LICENSE).
 
 ---
 

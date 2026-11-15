@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>code-review-skill(1) - User Commands</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -28,7 +25,7 @@
     html { background: var(--bg); }
 
     body {
-      font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
       font-size: 14px;
       line-height: 1.65;
       color: var(--fg);
@@ -541,16 +538,17 @@
   <section class="body">
 
     <p>Install with <span class="em">npx skills</span> for mainstream agents, or clone into the Claude Code skills directory.</p>
+    <p>These commands install the English-only fork <span class="em">norkos/code-review-skill</span>. To install the original version, follow the installation instructions in the README of the original repository, <a class="link" href="https://github.com/awesome-skills/code-review-skill" target="_blank">awesome-skills/code-review-skill</a>.</p>
 
 <pre class="codeblock"><span class="cmt"># npx skills (Cursor / Claude Code / Codex / OpenCode / others)</span>
-<span class="prompt">$</span> <span class="cmd">npx skills add</span> <span class="arg">awesome-skills/code-review-skill</span> --skill code-review-skill
+<span class="prompt">$</span> <span class="cmd">npx skills add</span> <span class="arg">norkos/code-review-skill</span> --skill code-review-skill
 
 <span class="cmt"># or clone into the Claude Code skills directory — macOS / Linux</span>
-<span class="prompt">$</span> <span class="cmd">git clone</span> <span class="arg">https://github.com/awesome-skills/code-review-skill.git</span> \
+<span class="prompt">$</span> <span class="cmd">git clone</span> <span class="arg">https://github.com/norkos/code-review-skill.git</span> \
     ~/.claude/skills/code-review-skill
 
 <span class="cmt"># Windows PowerShell</span>
-<span class="prompt">PS&gt;</span> <span class="cmd">git clone</span> <span class="arg">https://github.com/awesome-skills/code-review-skill.git</span> `
+<span class="prompt">PS&gt;</span> <span class="cmd">git clone</span> <span class="arg">https://github.com/norkos/code-review-skill.git</span> `
        "$env:USERPROFILE\.claude\skills\code-review-skill"</pre>
   </section>
 
@@ -600,9 +598,10 @@
   <section class="body">
     <p>
       <a class="link" href="https://claude.ai/code" target="_blank">claude-code(1)</a>,
-      <a class="link" href="https://github.com/awesome-skills/code-review-skill" target="_blank">github / awesome-skills</a>,
-      <a class="link" href="https://github.com/awesome-skills/code-review-skill/blob/main/CONTRIBUTING.md" target="_blank">CONTRIBUTING(7)</a>,
-      <a class="link" href="https://github.com/awesome-skills/code-review-skill/blob/main/assets/review-checklist.md" target="_blank">review-checklist(7)</a>
+      <a class="link" href="https://github.com/norkos/code-review-skill" target="_blank">github / norkos</a>,
+      <a class="link" href="https://github.com/awesome-skills/code-review-skill" target="_blank">github / awesome-skills (original)</a>,
+      <a class="link" href="https://github.com/norkos/code-review-skill/blob/main/CONTRIBUTING.md" target="_blank">CONTRIBUTING(7)</a>,
+      <a class="link" href="https://github.com/norkos/code-review-skill/blob/main/assets/review-checklist.md" target="_blank">review-checklist(7)</a>
     </p>
   </section>
 
@@ -611,7 +610,9 @@
   <section class="body">
     <dl class="bib">
       <dt>awesome-skills</dt>
-      <dd>maintainer, primary author</dd>
+      <dd>original author</dd>
+      <dt>norkos</dt>
+      <dd>fork maintainer &mdash; English translation and modifications</dd>
       <dt>contributors</dt>
       <dd>see <a class="link" href="https://github.com/awesome-skills/code-review-skill/graphs/contributors" target="_blank">graphs/contributors</a></dd>
     </dl>
@@ -621,7 +622,8 @@
   <h2 class="sec">COPYRIGHT</h2>
   <section class="body">
     <p>
-      <span class="dim">Copyright (c) 2025 awesome-skills.</span><br>
+      <span class="dim">Copyright (c) 2025 awesome-skills (original work).</span><br>
+      <span class="dim">Copyright (c) 2026 norkos (fork modifications).</span><br>
       Released under the MIT License.<br>
       <span class="dim">This is free software: you are free to change and redistribute it.</span><br>
       <span class="dim">There is NO WARRANTY, to the extent permitted by law.</span>

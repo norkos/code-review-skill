@@ -1,80 +1,80 @@
 # Svelte / SvelteKit Code Review Guide
 
-Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界、Form Actions、Store 迁移、以及安全性。
+Svelte 5 / SvelteKit review focus areas: the Runes reactivity system, Server/Client boundaries, Form Actions, Store migration, and security.
 
-## 目录
+## Table of Contents
 
 - [Runes: $state / $derived / $effect](#runes-state--derived--effect)
-- [Load 函数（Server vs Client）](#load-函数server-vs-client)
+- [Load Functions (Server vs Client)](#load-functions-server-vs-client)
 - [Form Actions](#form-actions)
-- [Store 迁移（→ $state）](#store-迁移)
-- [SSR vs CSR 边界](#ssr-vs-csr-边界)
-- [响应式语句迁移（$: → Runes）](#响应式语句迁移)
-- [性能优化](#性能优化)
-- [安全审查](#安全审查)
+- [Store Migration (→ $state)](#store-migration--state)
+- [SSR vs CSR Boundaries](#ssr-vs-csr-boundaries)
+- [Reactive Statement Migration ($: → Runes)](#reactive-statement-migration)
+- [Performance Optimization](#performance-optimization)
+- [Security Review](#security-review)
 - [Review Checklist](#review-checklist)
 
 ---
 
 ## Runes: $state / $derived / $effect
 
-### $state 基础用法
+### $state Basics
 
 ```svelte
-<!-- ❌ $state 用于永远不会变化的值 -->
+<!-- ❌ Using $state for values that never change -->
 <script lang="ts">
-  let config = $state({ timeout: 5000 });  // 不需要响应式
-  const API_URL = $state('/api');           // 常量不需要 $state
+  let config = $state({ timeout: 5000 });  // Doesn't need reactivity
+  const API_URL = $state('/api');           // Constants don't need $state
 </script>
 
-<!-- ✅ 常量直接声明 -->
+<!-- ✅ Declare constants directly -->
 <script lang="ts">
   const config = { timeout: 5000 };
   const API_URL = '/api';
 
-  // $state 只用于会变化的值
+  // Use $state only for values that change
   let count = $state(0);
   let user = $state<User | null>(null);
 </script>
 ```
 
-### $state.raw 与大型对象
+### $state.raw and Large Objects
 
 ```svelte
-<!-- ❌ 大型不可变数据使用深度响应式 -->
+<!-- ❌ Using deep reactivity for large immutable data -->
 <script lang="ts">
-  // largeData 会被深度代理，性能开销大
+  // largeData gets deeply proxied, which is expensive
   let data = $state(hugeApiResponse);
 </script>
 
-<!-- ✅ $state.raw 避免深度代理 -->
+<!-- ✅ $state.raw avoids deep proxying -->
 <script lang="ts">
   let data = $state.raw(hugeApiResponse);
 
-  // 整体替换时才触发更新
+  // Updates are triggered only when the whole value is replaced
   async function refresh() {
     data = await fetchLatestData();  // ✅ triggers reactivity
   }
 
-  // ❌ 修改嵌套属性不会触发更新
+  // ❌ Mutating nested properties won't trigger updates
   // data.items[0].name = 'new';  // will NOT re-render
 </script>
 ```
 
-### $state.snapshot 用于外部库
+### $state.snapshot for External Libraries
 
 ```svelte
-<!-- ❌ 直接将 $state 对象传给外部库 -->
+<!-- ❌ Passing a $state object directly to an external library -->
 <script lang="ts">
   let state = $state({ x: 0, y: 0 });
 
   onMount(() => {
-    // 外部库可能无法正确处理 Proxy 对象
+    // External libraries may not handle Proxy objects correctly
     chartLibrary.update(state);  // state is a Proxy!
   });
 </script>
 
-<!-- ✅ $state.snapshot 获取普通对象副本 -->
+<!-- ✅ $state.snapshot gets a plain object copy -->
 <script lang="ts">
   let state = $state({ x: 0, y: 0 });
 
@@ -85,23 +85,23 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
 </script>
 ```
 
-### 解构 $state 丢失响应性
+### Destructuring $state Loses Reactivity
 
 ```svelte
-<!-- ❌ 解构 $state 对象丢失响应性 -->
+<!-- ❌ Destructuring a $state object loses reactivity -->
 <script lang="ts">
   let state = $state({ count: 0, name: 'Svelte' });
   let { count, name } = state;  // count and name are plain values!
 </script>
 <p>{count}</p>  <!-- ❌ will NOT update when state.count changes -->
 
-<!-- ✅ 直接访问 $state 属性 -->
+<!-- ✅ Access $state properties directly -->
 <script lang="ts">
   let state = $state({ count: 0, name: 'Svelte' });
 </script>
 <p>{state.count}</p>  <!-- ✅ stays reactive -->
 
-<!-- ✅ 或者单独声明每个 $state -->
+<!-- ✅ Or declare each $state separately -->
 <script lang="ts">
   let count = $state(0);
   let name = $state('Svelte');
@@ -110,22 +110,22 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
 
 ---
 
-### $derived 正确用法
+### Using $derived Correctly
 
 ```svelte
-<!-- ❌ #1 反模式：用 $effect 做状态同步 -->
+<!-- ❌ #1 anti-pattern: using $effect for state sync -->
 <script lang="ts">
   let firstName = $state('John');
   let lastName = $state('Doe');
   let fullName = $state('');
 
-  // 不要用 $effect 来同步派生状态！
+  // Don't use $effect to sync derived state!
   $effect(() => {
     fullName = `${firstName} ${lastName}`;  // unnecessary effect
   });
 </script>
 
-<!-- ✅ 使用 $derived 计算派生值 -->
+<!-- ✅ Use $derived to compute derived values -->
 <script lang="ts">
   let firstName = $state('John');
   let lastName = $state('Doe');
@@ -133,10 +133,10 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
 </script>
 ```
 
-### $derived 中不应有副作用
+### $derived Should Have No Side Effects
 
 ```svelte
-<!-- ❌ $derived 中产生副作用 -->
+<!-- ❌ Side effects inside $derived -->
 <script lang="ts">
   let items = $state<Item[]>([]);
   let count = $derived(() => {
@@ -146,7 +146,7 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
   });
 </script>
 
-<!-- ✅ $derived 只用于纯计算 -->
+<!-- ✅ Use $derived only for pure computations -->
 <script lang="ts">
   let items = $state<Item[]>([]);
   let count = $derived(items.length);
@@ -160,12 +160,12 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
 
 ---
 
-### $effect 正确用法
+### Using $effect Correctly
 
 #### $effect vs $derived
 
 ```svelte
-<!-- ❌ $effect 用于同步状态（第一大反模式） -->
+<!-- ❌ Using $effect to sync state (the #1 anti-pattern) -->
 <script lang="ts">
   let searchQuery = $state('');
   let results = $state([]);
@@ -175,7 +175,7 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
   });
 </script>
 
-<!-- ✅ 使用 $derived -->
+<!-- ✅ Use $derived -->
 <script lang="ts">
   let searchQuery = $state('');
   let results = $derived(
@@ -184,10 +184,10 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
 </script>
 ```
 
-#### 无限循环
+#### Infinite Loops
 
 ```svelte
-<!-- ❌ $effect 中更新自身依赖 → 无限循环 -->
+<!-- ❌ Updating its own dependency inside $effect → infinite loop -->
 <script lang="ts">
   let count = $state(0);
 
@@ -197,7 +197,7 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
   });
 </script>
 
-<!-- ✅ 避免在 $effect 中修改被追踪的状态 -->
+<!-- ✅ Avoid modifying tracked state inside $effect -->
 <script lang="ts">
   let count = $state(0);
   let log = $state<string[]>([]);
@@ -209,10 +209,10 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
 </script>
 ```
 
-#### 清理函数
+#### Cleanup Functions
 
 ```svelte
-<!-- ❌ 缺少清理函数 → 内存泄漏 -->
+<!-- ❌ Missing cleanup function → memory leak -->
 <script lang="ts">
   let roomId = $state('');
 
@@ -225,7 +225,7 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
   });
 </script>
 
-<!-- ✅ 返回清理函数 -->
+<!-- ✅ Return a cleanup function -->
 <script lang="ts">
   let roomId = $state('');
 
@@ -238,7 +238,7 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
   });
 </script>
 
-<!-- ✅ 定时器清理 -->
+<!-- ✅ Timer cleanup -->
 <script lang="ts">
   $effect(() => {
     const id = setInterval(() => {
@@ -249,10 +249,10 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
 </script>
 ```
 
-#### async $effect 的追踪陷阱
+#### Tracking Pitfalls in async $effect
 
 ```svelte
-<!-- ❌ await 后读取的状态不会被追踪 -->
+<!-- ❌ State read after await is not tracked -->
 <script lang="ts">
   let userId = $state('1');
   let preference = $state('dark');
@@ -264,7 +264,7 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
   });
 </script>
 
-<!-- ✅ 在 await 前读取所有依赖 -->
+<!-- ✅ Read all dependencies before await -->
 <script lang="ts">
   let userId = $state('1');
   let preference = $state('dark');
@@ -277,10 +277,10 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
 </script>
 ```
 
-#### untrack 排除依赖
+#### Excluding Dependencies with untrack
 
 ```svelte
-<!-- ❌ 不小心追踪了不必要的依赖 -->
+<!-- ❌ Accidentally tracking an unnecessary dependency -->
 <script lang="ts">
   let data = $state<Data | null>(null);
   let debugMode = $state(false);
@@ -292,7 +292,7 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
   });
 </script>
 
-<!-- ✅ untrack 排除不相关的依赖 -->
+<!-- ✅ Use untrack to exclude irrelevant dependencies -->
 <script lang="ts">
   import { untrack } from 'svelte';
 
@@ -309,12 +309,12 @@ Svelte 5 / SvelteKit 审查重点：Runes 响应式系统、Server/Client 边界
 
 ---
 
-## Load 函数（Server vs Client）
+## Load Functions (Server vs Client)
 
 ### +page.server.js vs +page.js
 
 ```typescript
-// ❌ 在 +page.js 中访问数据库或 secrets
+// ❌ Accessing the database or secrets in +page.js
 // src/routes/admin/+page.js
 export async function load({ fetch }) {
   // universal load runs on both server and client
@@ -322,7 +322,7 @@ export async function load({ fetch }) {
   return { users: data };
 }
 
-// ✅ 服务端逻辑放在 +page.server.js
+// ✅ Put server-side logic in +page.server.js
 // src/routes/admin/+page.server.js
 import { db } from '$lib/server/db';
 
@@ -333,7 +333,7 @@ export async function load() {
 ```
 
 ```typescript
-// ✅ +page.js 用于客户端也可用的数据（如 fetch 聚合）
+// ✅ Use +page.js for data also available on the client (e.g. aggregating fetches)
 // src/routes/dashboard/+page.js
 export async function load({ fetch, parent }) {
   const [analytics, notifications] = await Promise.all([
@@ -344,10 +344,10 @@ export async function load({ fetch, parent }) {
 }
 ```
 
-### await parent() 瀑布流
+### await parent() Waterfalls
 
 ```typescript
-// ❌ 顺序 await parent → 瀑布流
+// ❌ Sequentially awaiting parent → waterfall
 // src/routes/blog/[slug]/+page.js
 export async function load({ parent, fetch }) {
   const parentData = await parent();  // wait for parent
@@ -355,7 +355,7 @@ export async function load({ parent, fetch }) {
   return { post };
 }
 
-// ✅ 尽可能并行，避免不必要的 parent await
+// ✅ Parallelize where possible and avoid unnecessary parent awaits
 // src/routes/blog/[slug]/+page.js
 export async function load({ parent, fetch }) {
   // only await parent if you truly need its data
@@ -363,7 +363,7 @@ export async function load({ parent, fetch }) {
   return { post };
 }
 
-// ✅ 如果确实需要 parent 数据，无法避免瀑布流，但要明确注释
+// ✅ If you truly need parent data, the waterfall is unavoidable, but comment it explicitly
 // src/routes/blog/[slug]/+page.js
 export async function load({ parent, fetch }) {
   const { blogId } = await parent();  // required: need blogId for post URL
@@ -372,10 +372,10 @@ export async function load({ parent, fetch }) {
 }
 ```
 
-### 不可序列化的返回值
+### Non-Serializable Return Values
 
 ```typescript
-// ❌ 从 server load 返回不可序列化的值
+// ❌ Returning non-serializable values from a server load
 // src/routes/api/+page.server.js
 export async function load() {
   return {
@@ -385,7 +385,7 @@ export async function load() {
   };
 }
 
-// ✅ 只返回可序列化的数据
+// ✅ Return only serializable data
 // src/routes/api/+page.server.js
 export async function load() {
   return {
@@ -399,10 +399,10 @@ export async function load() {
 
 ## Form Actions
 
-### 使用 POST 处理副作用
+### Use POST for Side Effects
 
 ```svelte
-<!-- ❌ 用 GET/load 函数处理副作用 -->
+<!-- ❌ Handling side effects with GET/load functions -->
 <script lang="ts">
   import { goto } from '$app/navigation';
 
@@ -413,7 +413,7 @@ export async function load() {
 </script>
 <button onclick={() => deleteUser(user.id)}>Delete</button>
 
-<!-- ✅ 使用 form actions -->
+<!-- ✅ Use form actions -->
 ```
 
 ```typescript
@@ -445,10 +445,10 @@ export const actions = {
 </form>
 ```
 
-### fail() 中不暴露敏感信息
+### Don't Expose Sensitive Information in fail()
 
 ```typescript
-// ❌ fail() 中返回敏感信息
+// ❌ Returning sensitive information in fail()
 // src/routes/login/+page.server.js
 export const actions = {
   default: async ({ request, locals }) => {
@@ -462,7 +462,7 @@ export const actions = {
   }
 };
 
-// ✅ 只返回安全的错误信息
+// ✅ Return only safe error information
 export const actions = {
   default: async ({ request }) => {
     const formData = await request.formData();
@@ -476,16 +476,16 @@ export const actions = {
 };
 ```
 
-### use:enhance 渐进增强
+### Progressive Enhancement with use:enhance
 
 ```svelte
-<!-- ❌ 表单不使用 use:enhance → 没有 JS 时才用原生行为 -->
+<!-- ❌ Form without use:enhance → only native behavior (full page reload) -->
 <form method="POST" action="?/create">
   <input name="title" />
   <button type="submit">Create</button>
 </form>
 
-<!-- ✅ use:enhance 提供 SPA 体验 + progressive enhancement -->
+<!-- ✅ use:enhance provides an SPA experience + progressive enhancement -->
 <script lang="ts">
   import { enhance } from '$app/forms';
 </script>
@@ -499,7 +499,7 @@ export const actions = {
   <button type="submit">Create</button>
 </form>
 
-<!-- ✅ 带加载状态 -->
+<!-- ✅ With a loading state -->
 <form
   method="POST"
   action="?/create"
@@ -519,7 +519,7 @@ export const actions = {
 
 ---
 
-## Store 迁移（→ $state）
+## Store Migration (→ $state)
 
 ### writable/readable → $state
 
@@ -551,17 +551,17 @@ export function isLoggedIn() {
 }
 ```
 
-### $ 前缀 store 语法是遗留语法
+### The $ Prefix Store Syntax Is Legacy
 
 ```svelte
-<!-- ❌ $ 前缀 store 自动订阅是遗留模式 -->
+<!-- ❌ $-prefixed store auto-subscription is a legacy pattern -->
 <script lang="ts">
   import { count } from '$lib/stores/count';
   // $count is legacy syntax in Svelte 5
 </script>
 <p>{$count}</p>
 
-<!-- ✅ Svelte 5 runes 模式 -->
+<!-- ✅ Svelte 5 runes pattern -->
 <script lang="ts">
   import { getCount } from '$lib/stores/count.svelte';
 
@@ -569,7 +569,7 @@ export function isLoggedIn() {
 </script>
 <p>{count}</p>
 
-<!-- ✅ 或者直接用 export 的 $state 响应式 getter -->
+<!-- ✅ Or use an exported reactive $state getter directly -->
 <script lang="ts">
   // count.svelte.js exports a reactive reference
   import { counter } from '$lib/stores/count.svelte';
@@ -577,14 +577,14 @@ export function isLoggedIn() {
 <p>{counter.value}</p>
 ```
 
-### .svelte.js / .svelte.ts 扩展名
+### .svelte.js / .svelte.ts Extensions
 
 ```typescript
-// ❌ 在普通 .js 文件中使用 runes → 编译错误
+// ❌ Using runes in a plain .js file → compile error
 // src/lib/utils.js
 let state = $state(0);  // runes only work in .svelte.js files!
 
-// ✅ 使用 .svelte.js 扩展名
+// ✅ Use the .svelte.js extension
 // src/lib/utils.svelte.js
 let state = $state(0);
 
@@ -599,34 +599,34 @@ export function setState(val: number) {
 
 ---
 
-## SSR vs CSR 边界
+## SSR vs CSR Boundaries
 
-### ssr=false SPA 模式
+### ssr=false SPA Mode
 
 ```typescript
-// ❌ 在根 layout 中禁用 SSR → 全部变成 CSR
+// ❌ Disabling SSR in the root layout → everything becomes CSR
 // src/routes/+layout.js
 export const ssr = false;  // entire app becomes SPA
 
-// ✅ 只在需要的页面禁用 SSR
+// ✅ Disable SSR only on pages that need it
 // src/routes/admin/dashboard/+page.js
 export const ssr = false;  // only this page skips SSR
 
-// ✅ 更好的做法：按路由配置
+// ✅ Better: configure per route
 // src/routes/editor/+page.js
 export const ssr = false;  // editor needs browser APIs, skip SSR
 ```
 
-### 浏览器全局变量在 SSR 中
+### Browser Globals During SSR
 
 ```svelte
-<!-- ❌ 在模块顶层访问浏览器 API -->
+<!-- ❌ Accessing browser APIs at the module top level -->
 <script lang="ts">
   const height = window.innerHeight;        // ReferenceError during SSR!
   const prefersDark = matchMedia('(prefers-color-scheme: dark)');  // crash!
 </script>
 
-<!-- ✅ 在 onMount 或 browser guard 中访问 -->
+<!-- ✅ Access them in onMount or behind a browser guard -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
@@ -644,10 +644,10 @@ export const ssr = false;  // editor needs browser APIs, skip SSR
 </script>
 ```
 
-### prerender 与 actions 冲突
+### prerender Conflicts with actions
 
 ```typescript
-// ❌ prerender 页面中定义 actions → 编译错误
+// ❌ Defining actions on a prerendered page → compile error
 // src/routes/contact/+page.server.js
 export const prerender = true;
 
@@ -656,12 +656,12 @@ export const actions = {
   default: async ({ request }) => { /* ... */ }
 };
 
-// ✅ prerender 页面不使用 server actions
+// ✅ Prerendered pages don't use server actions
 // src/routes/about/+page.server.js
 export const prerender = true;
 // no actions — static page
 
-// ✅ 需要 actions 的页面不 prerender
+// ✅ Pages that need actions are not prerendered
 // src/routes/contact/+page.server.js
 export const actions = {
   default: async ({ request }) => {
@@ -672,12 +672,12 @@ export const actions = {
 
 ---
 
-## 响应式语句迁移
+## Reactive Statement Migration
 
 ### $: → $derived / $effect
 
 ```svelte
-<!-- ❌ Svelte 4 响应式语句 -->
+<!-- ❌ Svelte 4 reactive statements -->
 <script lang="ts">
   let count = 0;
   let doubled = 0;
@@ -715,19 +715,19 @@ export const actions = {
 ### on:click → onclick
 
 ```svelte
-<!-- ❌ Svelte 4 指令式事件 -->
+<!-- ❌ Svelte 4 directive-style events -->
 <button on:click={handleClick}>Click</button>
 <button on:click={() => count++}>Increment</button>
 
-<!-- ✅ Svelte 5 HTML 属性式事件 -->
+<!-- ✅ Svelte 5 HTML attribute-style events -->
 <button onclick={handleClick}>Click</button>
 <button onclick={() => count++}>Increment</button>
 ```
 
-### createEventDispatcher → 回调 props
+### createEventDispatcher → Callback Props
 
 ```svelte
-<!-- ❌ Svelte 4 事件 dispatch -->
+<!-- ❌ Svelte 4 event dispatch -->
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   const dispatch = createEventDispatcher();
@@ -737,7 +737,7 @@ export const actions = {
   }
 </script>
 
-<!-- ✅ Svelte 5 回调 props -->
+<!-- ✅ Svelte 5 callback props -->
 <script lang="ts">
   let { ondelete }: { ondelete?: (e: { id: number }) => void } = $props();
 
@@ -825,17 +825,17 @@ export const actions = {
 
 ---
 
-## 性能优化
+## Performance Optimization
 
-### $state.raw 用于大型不可变数据
+### $state.raw for Large Immutable Data
 
 ```svelte
-<!-- ❌ 深度代理大型不可变数据 -->
+<!-- ❌ Deeply proxying large immutable data -->
 <script lang="ts">
   let searchResults = $state(largeResultArray);  // deep proxy on every item
 </script>
 
-<!-- ✅ $state.raw 避免深度代理 -->
+<!-- ✅ $state.raw avoids deep proxying -->
 <script lang="ts">
   let searchResults = $state.raw<SearchResult[]>([]);
 
@@ -848,26 +848,26 @@ export const actions = {
 ### Keyed {#each}
 
 ```svelte
-<!-- ❌ 无 key 的 each → 低效 DOM diff -->
+<!-- ❌ each without a key → inefficient DOM diffing -->
 {#each items as item}
   <div>{item.name}</div>
 {/each}
 
-<!-- ✅ 带唯一 key 的 each -->
+<!-- ✅ each with a unique key -->
 {#each items as item (item.id)}
   <div>{item.name}</div>
 {/each}
 
-<!-- ✅ 复合 key -->
+<!-- ✅ Composite key -->
 {#each items as item (`${item.category}-${item.id}`)}
   <div>{item.name}</div>
 {/each}
 ```
 
-### Streaming 与 load 中的 Promise
+### Streaming and Promises in load
 
 ```typescript
-// ❌ 串行等待所有数据 → 页面阻塞
+// ❌ Awaiting all data serially → page blocks
 // src/routes/+page.server.js
 export async function load({ params }) {
   const posts = await getPosts();       // slow
@@ -876,7 +876,7 @@ export async function load({ params }) {
   return { posts, comments, tags };
 }
 
-// ✅ 并行加载独立数据
+// ✅ Load independent data in parallel
 export async function load({ params }) {
   return {
     posts: getPosts(),       // return promises directly for streaming
@@ -903,16 +903,16 @@ export async function load({ params }) {
 
 ---
 
-## 安全审查
+## Security Review
 
-Svelte/SvelteKit 默认自动转义模板表达式。审查重点：`{@html}` 的使用、`$env/static/private` 泄露、CSRF 内建防护。
+Svelte/SvelteKit escapes template expressions automatically by default. Review focus: use of `{@html}`, `$env/static/private` leaks, and built-in CSRF protection.
 
-> **跨框架 XSS 防护详见 [XSS Prevention Guide](cross-cutting/xss-prevention.md)**，含 React/Vue/Angular/Svelte 示例及 CSP 配置。
+> **For cross-framework XSS prevention, see the [XSS Prevention Guide](cross-cutting/xss-prevention.md)**, which includes React/Vue/Angular/Svelte examples and CSP configuration.
 
-### 不暴露私有环境变量
+### Don't Expose Private Environment Variables
 
 ```typescript
-// ❌ 在 universal load 中暴露服务端 secrets
+// ❌ Exposing server-side secrets in a universal load
 // src/routes/admin/+page.js (universal — runs on client too!)
 export async function load() {
   return {
@@ -921,7 +921,7 @@ export async function load() {
   };
 }
 
-// ✅ 私有环境变量只在 server load 中使用
+// ✅ Use private environment variables only in server loads
 // src/routes/admin/+page.server.js (server-only)
 export async function load({ locals }) {
   // secrets stay on server
@@ -929,21 +929,21 @@ export async function load({ locals }) {
   return { data };  // only derived data is sent to client
 }
 
-// ✅ 公开变量使用 PUBLIC_ 前缀
+// ✅ Use the PUBLIC_ prefix for public variables
 // .env
 // PUBLIC_API_URL=https://api.example.com
 // SECRET_API_KEY=xxx  (no PUBLIC_ prefix = server-only)
 ```
 
-### $lib/server/ 服务端隔离
+### Server Isolation with $lib/server/
 
 ```typescript
-// ❌ 服务端代码放在可被客户端导入的位置
+// ❌ Server code placed where the client can import it
 // src/lib/db.js
 import { SECRET_DB_URL } from '$env/static/private';
 // any client component importing this gets the secret!
 
-// ✅ 放在 $lib/server/ 目录 → 客户端导入会编译报错
+// ✅ Put it in the $lib/server/ directory → client imports fail at compile time
 // src/lib/server/db.js
 import { SECRET_DB_URL } from '$env/static/private';
 
@@ -956,14 +956,14 @@ export async function query(sql: string) {
 import { query } from '$lib/server/db';
 ```
 
-### CSRF 内建防护
+### Built-in CSRF Protection
 
 ```typescript
-// ✅ SvelteKit 内建 CSRF 防护
+// ✅ SvelteKit has built-in CSRF protection
 // Origin header is checked automatically for POST/PUT/DELETE/PATCH
 // No additional CSRF tokens needed for form actions
 
-// ❌ 不要禁用 CSRF 检查（除非有充分理由）
+// ❌ Don't disable CSRF checks (unless you have a very good reason)
 // src/hooks.server.js
 export const handle = sequence(
   // do NOT do this without understanding the implications
@@ -971,10 +971,10 @@ export const handle = sequence(
 );
 ```
 
-### Cookie 安全设置
+### Secure Cookie Settings
 
 ```typescript
-// ❌ 不安全的 Cookie 设置
+// ❌ Insecure cookie settings
 // src/hooks.server.js
 export async function handle({ event, resolve }) {
   const token = event.cookies.get('session');
@@ -985,7 +985,7 @@ export async function handle({ event, resolve }) {
   });
 }
 
-// ✅ 安全的 Cookie 配置
+// ✅ Secure cookie configuration
 import { dev } from '$app/environment';
 
 event.cookies.set('session', token, {
@@ -1003,62 +1003,62 @@ event.cookies.set('session', token, {
 
 ### Runes: $state / $derived / $effect
 
-- [ ] $state 只用于会变化的值，常量直接声明
-- [ ] 大型不可变数据使用 $state.raw
-- [ ] 没有解构 $state 对象（会丢失响应性）
-- [ ] 外部库使用 $state.snapshot 传入普通对象
-- [ ] $derived 中没有副作用
-- [ ] 没有用 $effect 替代 $derived 做状态同步
-- [ ] $effect 中不修改被追踪的状态（避免无限循环）
-- [ ] $effect 有清理函数（订阅、定时器、WebSocket）
-- [ ] async $effect 在 await 前读取所有需要追踪的状态
-- [ ] 使用 untrack 排除不相关的依赖
+- [ ] $state is used only for values that change; constants are declared directly
+- [ ] Large immutable data uses $state.raw
+- [ ] $state objects are not destructured (loses reactivity)
+- [ ] $state.snapshot is used to pass plain objects to external libraries
+- [ ] No side effects in $derived
+- [ ] $effect is not used in place of $derived for state sync
+- [ ] $effect does not modify tracked state (avoids infinite loops)
+- [ ] $effect has cleanup functions (subscriptions, timers, WebSocket)
+- [ ] async $effect reads all state that needs tracking before await
+- [ ] untrack is used to exclude irrelevant dependencies
 
-### Load 函数
+### Load Functions
 
-- [ ] 服务端逻辑放在 +page.server.js（不是 +page.js）
-- [ ] 避免不必要的 await parent() 瀑布流
-- [ ] 独立数据并行加载（Promise.all 或直接返回 Promise）
-- [ ] server load 只返回可序列化的数据
+- [ ] Server-side logic lives in +page.server.js (not +page.js)
+- [ ] Unnecessary await parent() waterfalls are avoided
+- [ ] Independent data is loaded in parallel (Promise.all or returning Promises directly)
+- [ ] server load returns only serializable data
 
 ### Form Actions
 
-- [ ] 副作用操作（增删改）使用 form actions + POST
-- [ ] fail() 不返回敏感信息（密码、内部数据）
-- [ ] 使用 use:enhance 实现渐进增强
+- [ ] Side-effecting operations (create/update/delete) use form actions + POST
+- [ ] fail() does not return sensitive information (passwords, internal data)
+- [ ] use:enhance is used for progressive enhancement
 
-### Store 迁移
+### Store Migration
 
-- [ ] writable/readable → $state 在 .svelte.js 文件中
-- [ ] 不在普通 .js 文件中使用 runes
-- [ ] 不使用遗留的 $ 前缀 store 语法
+- [ ] writable/readable → $state in .svelte.js files
+- [ ] Runes are not used in plain .js files
+- [ ] The legacy $-prefixed store syntax is not used
 
-### SSR vs CSR 边界
+### SSR vs CSR Boundaries
 
-- [ ] 不在根 layout 中全局禁用 SSR
-- [ ] 浏览器 API（window、document）在 onMount 或 browser guard 中使用
-- [ ] prerender 页面不包含 server actions
+- [ ] SSR is not disabled globally in the root layout
+- [ ] Browser APIs (window, document) are used in onMount or behind a browser guard
+- [ ] Prerendered pages contain no server actions
 
-### Svelte 4 → 5 迁移
+### Svelte 4 → 5 Migration
 
 - [ ] $: → $derived / $effect
 - [ ] export let → $props()
 - [ ] on:click → onclick
-- [ ] createEventDispatcher → 回调 props
+- [ ] createEventDispatcher → callback props
 - [ ] slot → @render children()
 - [ ] beforeUpdate/afterUpdate → $effect.pre / $effect
 
-### 性能优化
+### Performance Optimization
 
-- [ ] 大型不可变数据使用 $state.raw
-- [ ] {#each} 使用唯一 key
-- [ ] load 函数返回 Promise 实现流式传输
-- [ ] 独立数据并行加载
+- [ ] Large immutable data uses $state.raw
+- [ ] {#each} uses unique keys
+- [ ] load functions return Promises for streaming
+- [ ] Independent data is loaded in parallel
 
-### 安全审查
+### Security Review
 
-- [ ] 私有环境变量只在 server load 中使用
-- [ ] 服务端代码放在 $lib/server/ 目录
-- [ ] 不禁用内建 CSRF 防护
-- [ ] Cookie 设置 httpOnly、secure、sameSite
-- [ ] server load 不泄露密钥和内部数据
+- [ ] Private environment variables are used only in server loads
+- [ ] Server code lives in the $lib/server/ directory
+- [ ] Built-in CSRF protection is not disabled
+- [ ] Cookies set httpOnly, secure, and sameSite
+- [ ] server load does not leak secrets or internal data

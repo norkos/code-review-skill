@@ -1,91 +1,91 @@
-# Go 代码审查指南
+# Go Code Review Guide
 
-基于 Go 官方指南、Effective Go 和社区最佳实践的代码审查清单。
+A code review checklist based on the official Go guidelines, Effective Go, and community best practices.
 
-## 快速审查清单
+## Quick Review Checklist
 
-### 必查项
-- [ ] 错误是否正确处理（不忽略、有上下文）
-- [ ] goroutine 是否有退出机制（避免泄漏）
-- [ ] context 是否正确传递和取消
-- [ ] 接收器类型选择是否合理（值/指针）
-- [ ] 是否使用 `gofmt` 格式化代码
+### Must Check
+- [ ] Are errors handled correctly (not ignored, with context)?
+- [ ] Do goroutines have an exit mechanism (avoid leaks)?
+- [ ] Is context propagated and canceled correctly?
+- [ ] Is the receiver type (value/pointer) chosen sensibly?
+- [ ] Is the code formatted with `gofmt`?
 
-### 高频问题
-- [ ] 循环变量捕获问题（Go < 1.22）
-- [ ] nil 检查是否完整
-- [ ] map 是否初始化后使用
-- [ ] defer 在循环中的使用
-- [ ] 变量遮蔽（shadowing）
+### Common Issues
+- [ ] Loop variable capture (Go < 1.22)
+- [ ] Are nil checks complete?
+- [ ] Are maps initialized before use?
+- [ ] Use of defer inside loops
+- [ ] Variable shadowing
 
 ---
 
-## 1. 错误处理
+## 1. Error Handling
 
-> 📖 通用原则和跨语言示例详见 [错误处理跨语言指南](cross-cutting/error-handling-principles.md)
+> 📖 For general principles and cross-language examples, see the [Cross-Language Error Handling Guide](cross-cutting/error-handling-principles.md)
 
-### 1.1 永远不要忽略错误
+### 1.1 Never Ignore Errors
 
 ```go
-// ❌ 错误：忽略错误
+// ❌ Wrong: ignoring the error
 result, _ := SomeFunction()
 
-// ✅ 正确：处理错误
+// ✅ Correct: handle the error
 result, err := SomeFunction()
 if err != nil {
     return fmt.Errorf("some function failed: %w", err)
 }
 ```
 
-### 1.2 错误包装与上下文
+### 1.2 Error Wrapping and Context
 
 ```go
-// ❌ 错误：丢失上下文
+// ❌ Wrong: context is lost
 if err != nil {
     return err
 }
 
-// ❌ 错误：使用 %v 丢失错误链
+// ❌ Wrong: %v breaks the error chain
 if err != nil {
     return fmt.Errorf("failed: %v", err)
 }
 
-// ✅ 正确：使用 %w 保留错误链
+// ✅ Correct: %w preserves the error chain
 if err != nil {
     return fmt.Errorf("failed to process user %d: %w", userID, err)
 }
 ```
 
-### 1.3 使用 errors.Is 和 errors.As
+### 1.3 Use errors.Is and errors.As
 
 ```go
-// ❌ 错误：直接比较（无法处理包装错误）
+// ❌ Wrong: direct comparison (cannot handle wrapped errors)
 if err == sql.ErrNoRows {
     // ...
 }
 
-// ✅ 正确：使用 errors.Is（支持错误链）
+// ✅ Correct: errors.Is (supports error chains)
 if errors.Is(err, sql.ErrNoRows) {
     return nil, ErrNotFound
 }
 
-// ✅ 正确：使用 errors.As 提取特定类型
+// ✅ Correct: errors.As to extract a specific type
 var pathErr *os.PathError
 if errors.As(err, &pathErr) {
     log.Printf("path error: %s", pathErr.Path)
 }
 ```
 
-### 1.4 自定义错误类型
+### 1.4 Custom Error Types
 
 ```go
-// ✅ 推荐：定义 sentinel 错误
+// ✅ Recommended: define sentinel errors
 var (
     ErrNotFound     = errors.New("not found")
     ErrUnauthorized = errors.New("unauthorized")
 )
 
-// ✅ 推荐：带上下文的自定义错误
+// ✅ Recommended: custom error with context
 type ValidationError struct {
     Field   string
     Message string
@@ -96,47 +96,47 @@ func (e *ValidationError) Error() string {
 }
 ```
 
-### 1.5 错误处理只做一次
+### 1.5 Handle Errors Only Once
 
 ```go
-// ❌ 错误：既记录又返回（重复处理）
+// ❌ Wrong: both logging and returning (handled twice)
 if err != nil {
     log.Printf("error: %v", err)
     return err
 }
 
-// ✅ 正确：只返回，让调用者决定
+// ✅ Correct: just return and let the caller decide
 if err != nil {
     return fmt.Errorf("operation failed: %w", err)
 }
 
-// ✅ 或者：只记录并处理（不返回）
+// ✅ Or: log and handle it (without returning)
 if err != nil {
     log.Printf("non-critical error: %v", err)
-    // 继续执行备用逻辑
+    // continue with fallback logic
 }
 ```
 
 ---
 
-## 2. 并发与 Goroutine
+## 2. Concurrency and Goroutines
 
-> 📖 通用并发模式和跨语言示例详见 [异步与并发跨语言指南](cross-cutting/async-concurrency-patterns.md)
+> 📖 For general concurrency patterns and cross-language examples, see the [Cross-Language Async and Concurrency Guide](cross-cutting/async-concurrency-patterns.md)
 
-### 2.1 避免 Goroutine 泄漏
+### 2.1 Avoid Goroutine Leaks
 
 ```go
-// ❌ 错误：goroutine 永远无法退出
+// ❌ Wrong: the goroutine can never exit
 func bad() {
     ch := make(chan int)
     go func() {
-        val := <-ch // 永远阻塞，无人发送
+        val := <-ch // blocks forever, nobody sends
         fmt.Println(val)
     }()
-    // 函数返回，goroutine 泄漏
+    // function returns, goroutine leaks
 }
 
-// ✅ 正确：使用 context 或 done channel
+// ✅ Correct: use context or a done channel
 func good(ctx context.Context) {
     ch := make(chan int)
     go func() {
@@ -144,57 +144,57 @@ func good(ctx context.Context) {
         case val := <-ch:
             fmt.Println(val)
         case <-ctx.Done():
-            return // 优雅退出
+            return // graceful exit
         }
     }()
 }
 ```
 
-### 2.2 Channel 使用规范
+### 2.2 Channel Usage Rules
 
 ```go
-// ❌ 错误：向 nil channel 发送（永久阻塞）
+// ❌ Wrong: sending on a nil channel (blocks forever)
 var ch chan int
-ch <- 1 // 永久阻塞
+ch <- 1 // blocks forever
 
-// ❌ 错误：向已关闭的 channel 发送（panic）
+// ❌ Wrong: sending on a closed channel (panic)
 close(ch)
 ch <- 1 // panic!
 
-// ✅ 正确：发送方关闭 channel
+// ✅ Correct: the sender closes the channel
 func producer(ch chan<- int) {
-    defer close(ch) // 发送方负责关闭
+    defer close(ch) // the sender is responsible for closing
     for i := 0; i < 10; i++ {
         ch <- i
     }
 }
 
-// ✅ 正确：接收方检测关闭
+// ✅ Correct: the receiver detects closing
 for val := range ch {
     process(val)
 }
-// 或者
+// or
 val, ok := <-ch
 if !ok {
-    // channel 已关闭
+    // channel is closed
 }
 ```
 
-### 2.3 使用 sync.WaitGroup
+### 2.3 Using sync.WaitGroup
 
 ```go
-// ❌ 错误：Add 在 goroutine 内部
+// ❌ Wrong: Add inside the goroutine
 var wg sync.WaitGroup
 for i := 0; i < 10; i++ {
     go func() {
-        wg.Add(1) // 竞态条件！
+        wg.Add(1) // race condition!
         defer wg.Done()
         work()
     }()
 }
 wg.Wait()
 
-// ✅ 正确：Add 在 goroutine 启动前
+// ✅ Correct: Add before starting the goroutine
 var wg sync.WaitGroup
 for i := 0; i < 10; i++ {
     wg.Add(1)
@@ -206,35 +206,35 @@ for i := 0; i < 10; i++ {
 wg.Wait()
 ```
 
-### 2.4 避免在循环中捕获变量（Go < 1.22）
+### 2.4 Avoid Capturing Loop Variables (Go < 1.22)
 
 ```go
-// ❌ 错误（Go < 1.22）：捕获循环变量
+// ❌ Wrong (Go < 1.22): capturing the loop variable
 for _, item := range items {
     go func() {
-        process(item) // 所有 goroutine 可能使用同一个 item
+        process(item) // all goroutines may use the same item
     }()
 }
 
-// ✅ 正确：传递参数
+// ✅ Correct: pass it as a parameter
 for _, item := range items {
     go func(it Item) {
         process(it)
     }(item)
 }
 
-// ✅ Go 1.22+：默认行为已修复，每次迭代创建新变量
+// ✅ Go 1.22+: fixed by default, each iteration creates a new variable
 ```
 
-### 2.5 Worker Pool 模式
+### 2.5 Worker Pool Pattern
 
 ```go
-// ✅ 推荐：限制并发数量
+// ✅ Recommended: limit concurrency
 func processWithWorkerPool(ctx context.Context, items []Item, workers int) error {
     jobs := make(chan Item, len(items))
     results := make(chan error, len(items))
 
-    // 启动 worker
+    // start workers
     for w := 0; w < workers; w++ {
         go func() {
             for item := range jobs {
@@ -243,13 +243,13 @@ func processWithWorkerPool(ctx context.Context, items []Item, workers int) error
         }()
     }
 
-    // 发送任务
+    // send jobs
     for _, item := range items {
         jobs <- item
     }
     close(jobs)
 
-    // 收集结果
+    // collect results
     for range items {
         if err := <-results; err != nil {
             return err
@@ -261,36 +261,36 @@ func processWithWorkerPool(ctx context.Context, items []Item, workers int) error
 
 ---
 
-## 3. Context 使用
+## 3. Context Usage
 
-### 3.1 Context 作为第一个参数
+### 3.1 Context as the First Parameter
 
 ```go
-// ❌ 错误：context 不是第一个参数
+// ❌ Wrong: context is not the first parameter
 func Process(data []byte, ctx context.Context) error
 
-// ❌ 错误：context 存储在 struct 中
+// ❌ Wrong: context stored in a struct
 type Service struct {
-    ctx context.Context // 不要这样做！
+    ctx context.Context // don't do this!
 }
 
-// ✅ 正确：context 作为第一个参数，命名为 ctx
+// ✅ Correct: context as the first parameter, named ctx
 func Process(ctx context.Context, data []byte) error
 ```
 
-### 3.2 传播而非创建新的根 Context
+### 3.2 Propagate Instead of Creating a New Root Context
 
 ```go
-// ❌ 错误：在调用链中创建新的根 context
+// ❌ Wrong: creating a new root context inside the call chain
 func middleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        ctx := context.Background() // 丢失了请求的 context！
+        ctx := context.Background() // the request context is lost!
         process(ctx)
         next.ServeHTTP(w, r)
     })
 }
 
-// ✅ 正确：从请求中获取并传播
+// ✅ Correct: take it from the request and propagate it
 func middleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         ctx := r.Context()
@@ -301,29 +301,29 @@ func middleware(next http.Handler) http.Handler {
 }
 ```
 
-### 3.3 始终调用 cancel 函数
+### 3.3 Always Call the cancel Function
 
 ```go
-// ❌ 错误：未调用 cancel
+// ❌ Wrong: cancel is never called
 ctx, cancel := context.WithTimeout(parentCtx, 5*time.Second)
-// 缺少 cancel() 调用，可能资源泄漏
+// missing cancel() call, possible resource leak
 
-// ✅ 正确：使用 defer 确保调用
+// ✅ Correct: use defer to guarantee the call
 ctx, cancel := context.WithTimeout(parentCtx, 5*time.Second)
-defer cancel() // 即使超时也要调用
+defer cancel() // call it even if the timeout fires
 ```
 
-### 3.4 响应 Context 取消
+### 3.4 Respond to Context Cancellation
 
 ```go
-// ✅ 推荐：在长时间操作中检查 context
+// ✅ Recommended: check the context during long-running operations
 func LongRunningTask(ctx context.Context) error {
     for {
         select {
         case <-ctx.Done():
-            return ctx.Err() // 返回 context.Canceled 或 context.DeadlineExceeded
+            return ctx.Err() // returns context.Canceled or context.DeadlineExceeded
         default:
-            // 执行一小部分工作
+            // do a small chunk of work
             if err := doChunk(); err != nil {
                 return err
             }
@@ -332,10 +332,10 @@ func LongRunningTask(ctx context.Context) error {
 }
 ```
 
-### 3.5 区分取消原因
+### 3.5 Distinguish Cancellation Causes
 
 ```go
-// ✅ 根据 ctx.Err() 区分取消原因
+// ✅ Use ctx.Err() to distinguish the cancellation cause
 if err := ctx.Err(); err != nil {
     switch {
     case errors.Is(err, context.Canceled):
@@ -349,49 +349,49 @@ if err := ctx.Err(); err != nil {
 
 ---
 
-## 4. 接口设计
+## 4. Interface Design
 
-### 4.1 接受接口，返回结构体
+### 4.1 Accept Interfaces, Return Structs
 
 ```go
-// ❌ 不推荐：接受具体类型
+// ❌ Not recommended: accepting a concrete type
 func SaveUser(db *sql.DB, user User) error
 
-// ✅ 推荐：接受接口（解耦、易测试）
+// ✅ Recommended: accept an interface (decoupled, easy to test)
 type UserStore interface {
     Save(ctx context.Context, user User) error
 }
 
 func SaveUser(store UserStore, user User) error
 
-// ❌ 不推荐：返回接口
+// ❌ Not recommended: returning an interface
 func NewUserService() UserServiceInterface
 
-// ✅ 推荐：返回具体类型
+// ✅ Recommended: return a concrete type
 func NewUserService(store UserStore) *UserService
 ```
 
-### 4.2 在消费者处定义接口
+### 4.2 Define Interfaces at the Consumer
 
 ```go
-// ❌ 不推荐：在实现包中定义接口
+// ❌ Not recommended: defining the interface in the implementing package
 // package database
 type Database interface {
     Query(ctx context.Context, query string) ([]Row, error)
-    // ... 20 个方法
+    // ... 20 methods
 }
 
-// ✅ 推荐：在消费者包中定义所需的最小接口
+// ✅ Recommended: define the minimal required interface in the consumer package
 // package userservice
 type UserQuerier interface {
     QueryUsers(ctx context.Context, filter Filter) ([]User, error)
 }
 ```
 
-### 4.3 保持接口小而专注
+### 4.3 Keep Interfaces Small and Focused
 
 ```go
-// ❌ 不推荐：大而全的接口
+// ❌ Not recommended: large catch-all interface
 type Repository interface {
     GetUser(id int) (*User, error)
     CreateUser(u *User) error
@@ -399,10 +399,10 @@ type Repository interface {
     DeleteUser(id int) error
     GetOrder(id int) (*Order, error)
     CreateOrder(o *Order) error
-    // ... 更多方法
+    // ... more methods
 }
 
-// ✅ 推荐：小而专注的接口
+// ✅ Recommended: small, focused interfaces
 type UserReader interface {
     GetUser(ctx context.Context, id int) (*User, error)
 }
@@ -412,23 +412,23 @@ type UserWriter interface {
     UpdateUser(ctx context.Context, u *User) error
 }
 
-// 组合接口
+// composed interface
 type UserRepository interface {
     UserReader
     UserWriter
 }
 ```
 
-### 4.4 避免空接口滥用
+### 4.4 Avoid Overusing the Empty Interface
 
 ```go
-// ❌ 不推荐：过度使用 interface{}
+// ❌ Not recommended: overusing interface{}
 func Process(data interface{}) interface{}
 
-// ✅ 推荐：使用泛型（Go 1.18+）
+// ✅ Recommended: use generics (Go 1.18+)
 func Process[T any](data T) T
 
-// ✅ 推荐：定义具体接口
+// ✅ Recommended: define a concrete interface
 type Processor interface {
     Process() Result
 }
@@ -436,17 +436,17 @@ type Processor interface {
 
 ---
 
-## 5. 接收器类型选择
+## 5. Choosing the Receiver Type
 
-### 5.1 使用指针接收器的情况
+### 5.1 When to Use a Pointer Receiver
 
 ```go
-// ✅ 需要修改接收器时
+// ✅ When the receiver needs to be modified
 func (u *User) SetName(name string) {
     u.Name = name
 }
 
-// ✅ 接收器包含 sync.Mutex 等同步原语
+// ✅ When the receiver contains sync primitives such as sync.Mutex
 type SafeCounter struct {
     mu    sync.Mutex
     count int
@@ -458,7 +458,7 @@ func (c *SafeCounter) Inc() {
     c.count++
 }
 
-// ✅ 接收器是大型结构体（避免复制开销）
+// ✅ When the receiver is a large struct (avoid copy overhead)
 type LargeStruct struct {
     Data [1024]byte
     // ...
@@ -467,10 +467,10 @@ type LargeStruct struct {
 func (l *LargeStruct) Process() { /* ... */ }
 ```
 
-### 5.2 使用值接收器的情况
+### 5.2 When to Use a Value Receiver
 
 ```go
-// ✅ 接收器是小型不可变结构体
+// ✅ The receiver is a small immutable struct
 type Point struct {
     X, Y float64
 }
@@ -479,14 +479,14 @@ func (p Point) Distance(other Point) float64 {
     return math.Sqrt(math.Pow(p.X-other.X, 2) + math.Pow(p.Y-other.Y, 2))
 }
 
-// ✅ 接收器是基本类型的别名
+// ✅ The receiver is an alias of a basic type
 type Counter int
 
 func (c Counter) String() string {
     return fmt.Sprintf("%d", c)
 }
 
-// ✅ 接收器是 map、func、chan（本身是引用类型）
+// ✅ The receiver is a map, func, or chan (already reference types)
 type StringSet map[string]struct{}
 
 func (s StringSet) Contains(key string) bool {
@@ -495,65 +495,65 @@ func (s StringSet) Contains(key string) bool {
 }
 ```
 
-### 5.3 一致性原则
+### 5.3 Consistency Principle
 
 ```go
-// ❌ 不推荐：混合使用接收器类型
-func (u User) GetName() string   // 值接收器
-func (u *User) SetName(n string) // 指针接收器
+// ❌ Not recommended: mixing receiver types
+func (u User) GetName() string   // value receiver
+func (u *User) SetName(n string) // pointer receiver
 
-// ✅ 推荐：如果有任何方法需要指针接收器，全部使用指针
+// ✅ Recommended: if any method needs a pointer receiver, use pointers for all
 func (u *User) GetName() string { return u.Name }
 func (u *User) SetName(n string) { u.Name = n }
 ```
 
 ---
 
-## 6. 性能优化
+## 6. Performance Optimization
 
-### 6.1 预分配 Slice
+### 6.1 Preallocate Slices
 
 ```go
-// ❌ 不推荐：动态增长
+// ❌ Not recommended: dynamic growth
 var result []int
 for i := 0; i < 10000; i++ {
-    result = append(result, i) // 多次分配和复制
+    result = append(result, i) // repeated allocation and copying
 }
 
-// ✅ 推荐：预分配已知大小
+// ✅ Recommended: preallocate a known size
 result := make([]int, 0, 10000)
 for i := 0; i < 10000; i++ {
     result = append(result, i)
 }
 
-// ✅ 或者直接初始化
+// ✅ Or initialize directly
 result := make([]int, 10000)
 for i := 0; i < 10000; i++ {
     result[i] = i
 }
 ```
 
-### 6.2 避免不必要的堆分配
+### 6.2 Avoid Unnecessary Heap Allocations
 
 ```go
-// ❌ 可能逃逸到堆
+// ❌ May escape to the heap
 func NewUser() *User {
-    return &User{} // 逃逸到堆
+    return &User{} // escapes to the heap
 }
 
-// ✅ 考虑返回值（如果适用）
+// ✅ Consider returning a value (when appropriate)
 func NewUser() User {
-    return User{} // 可能在栈上分配
+    return User{} // may be allocated on the stack
 }
 
-// 检查逃逸分析
+// Check escape analysis
 // go build -gcflags '-m -m' ./...
 ```
 
-### 6.3 使用 sync.Pool 复用对象
+### 6.3 Reuse Objects with sync.Pool
 
 ```go
-// ✅ 推荐：高频创建/销毁的对象使用 sync.Pool
+// ✅ Recommended: use sync.Pool for frequently created/destroyed objects
 var bufferPool = sync.Pool{
     New: func() interface{} {
         return new(bytes.Buffer)
@@ -572,51 +572,51 @@ func ProcessData(data []byte) string {
 }
 ```
 
-### 6.4 字符串拼接优化
+### 6.4 String Concatenation Optimization
 
 ```go
-// ❌ 不推荐：循环中使用 + 拼接
+// ❌ Not recommended: concatenating with + in a loop
 var result string
 for _, s := range strings {
-    result += s // 每次创建新字符串
+    result += s // creates a new string each time
 }
 
-// ✅ 推荐：使用 strings.Builder
+// ✅ Recommended: use strings.Builder
 var builder strings.Builder
 for _, s := range strings {
     builder.WriteString(s)
 }
 result := builder.String()
 
-// ✅ 或者使用 strings.Join
+// ✅ Or use strings.Join
 result := strings.Join(strings, "")
 ```
 
-### 6.5 避免 interface{} 转换开销
+### 6.5 Avoid interface{} Conversion Overhead
 
 ```go
-// ❌ 热路径中使用 interface{}
+// ❌ Using interface{} on a hot path
 func process(data interface{}) {
-    switch v := data.(type) { // 类型断言有开销
+    switch v := data.(type) { // type assertions have a cost
     case int:
         // ...
     }
 }
 
-// ✅ 热路径中使用泛型或具体类型
+// ✅ Use generics or concrete types on hot paths
 func process[T int | int64 | float64](data T) {
-    // 编译时确定类型，无运行时开销
+    // type determined at compile time, no runtime overhead
 }
 ```
 
 ---
 
-## 7. 测试
+## 7. Testing
 
-### 7.1 表驱动测试
+### 7.1 Table-Driven Tests
 
 ```go
-// ✅ 推荐：表驱动测试
+// ✅ Recommended: table-driven tests
 func TestAdd(t *testing.T) {
     tests := []struct {
         name     string
@@ -640,10 +640,10 @@ func TestAdd(t *testing.T) {
 }
 ```
 
-### 7.2 并行测试
+### 7.2 Parallel Tests
 
 ```go
-// ✅ 推荐：独立测试用例并行执行
+// ✅ Recommended: run independent test cases in parallel
 func TestParallel(t *testing.T) {
     tests := []struct {
         name  string
@@ -654,9 +654,9 @@ func TestParallel(t *testing.T) {
     }
 
     for _, tt := range tests {
-        tt := tt // Go < 1.22 需要复制
+        tt := tt // required for Go < 1.22
         t.Run(tt.name, func(t *testing.T) {
-            t.Parallel() // 标记为可并行
+            t.Parallel() // mark as parallelizable
             result := Process(tt.input)
             // assertions...
         })
@@ -664,18 +664,18 @@ func TestParallel(t *testing.T) {
 }
 ```
 
-### 7.3 使用接口进行 Mock
+### 7.3 Mocking with Interfaces
 
 ```go
-// ✅ 定义接口以便测试
+// ✅ Define an interface to enable testing
 type EmailSender interface {
     Send(to, subject, body string) error
 }
 
-// 生产实现
+// production implementation
 type SMTPSender struct { /* ... */ }
 
-// 测试 Mock
+// test mock
 type MockEmailSender struct {
     SendFunc func(to, subject, body string) error
 }
@@ -699,18 +699,18 @@ func TestUserRegistration(t *testing.T) {
 }
 ```
 
-### 7.4 测试辅助函数
+### 7.4 Test Helpers
 
 ```go
-// ✅ 使用 t.Helper() 标记辅助函数
+// ✅ Mark helper functions with t.Helper()
 func assertEqual(t *testing.T, got, want interface{}) {
-    t.Helper() // 错误报告时显示调用者位置
+    t.Helper() // reports the caller's location on failure
     if got != want {
         t.Errorf("got %v, want %v", got, want)
     }
 }
 
-// ✅ 使用 t.Cleanup() 清理资源
+// ✅ Clean up resources with t.Cleanup()
 func TestWithTempFile(t *testing.T) {
     f, err := os.CreateTemp("", "test")
     if err != nil {
@@ -725,7 +725,7 @@ func TestWithTempFile(t *testing.T) {
 
 ---
 
-## 8. 常见陷阱
+## 8. Common Pitfalls
 
 ### 8.1 Nil Slice vs Empty Slice
 
@@ -734,48 +734,48 @@ var nilSlice []int     // nil, len=0, cap=0
 emptySlice := []int{}  // not nil, len=0, cap=0
 made := make([]int, 0) // not nil, len=0, cap=0
 
-// ✅ JSON 编码差异
+// ✅ JSON encoding differs
 json.Marshal(nilSlice)   // null
 json.Marshal(emptySlice) // []
 
-// ✅ 推荐：需要空数组 JSON 时显式初始化
+// ✅ Recommended: initialize explicitly when an empty JSON array is required
 if slice == nil {
     slice = []int{}
 }
 ```
 
-### 8.2 Map 初始化
+### 8.2 Map Initialization
 
 ```go
-// ❌ 错误：未初始化的 map
+// ❌ Wrong: uninitialized map
 var m map[string]int
 m["key"] = 1 // panic: assignment to entry in nil map
 
-// ✅ 正确：使用 make 初始化
+// ✅ Correct: initialize with make
 m := make(map[string]int)
 m["key"] = 1
 
-// ✅ 或者使用字面量
+// ✅ Or use a literal
 m := map[string]int{}
 ```
 
-### 8.3 Defer 在循环中
+### 8.3 Defer Inside Loops
 
 ```go
-// ❌ 潜在问题：defer 在函数结束时才执行
+// ❌ Potential issue: defer only runs when the function returns
 func processFiles(files []string) error {
     for _, file := range files {
         f, err := os.Open(file)
         if err != nil {
             return err
         }
-        defer f.Close() // 所有文件在函数结束时才关闭！
+        defer f.Close() // no file is closed until the function returns!
         // process...
     }
     return nil
 }
 
-// ✅ 正确：使用闭包或提取函数
+// ✅ Correct: use a closure or extract a function
 func processFiles(files []string) error {
     for _, file := range files {
         if err := processFile(file); err != nil {
@@ -796,50 +796,50 @@ func processFile(file string) error {
 }
 ```
 
-### 8.4 Slice 底层数组共享
+### 8.4 Slices Sharing the Underlying Array
 
 ```go
-// ❌ 潜在问题：切片共享底层数组
+// ❌ Potential issue: slices share the underlying array
 original := []int{1, 2, 3, 4, 5}
 slice := original[1:3] // [2, 3]
-slice[0] = 100         // 修改了 original！
-// original 变成 [1, 100, 3, 4, 5]
+slice[0] = 100         // modifies original!
+// original becomes [1, 100, 3, 4, 5]
 
-// ✅ 正确：需要独立副本时显式复制
+// ✅ Correct: copy explicitly when an independent copy is needed
 slice := make([]int, 2)
 copy(slice, original[1:3])
-slice[0] = 100 // 不影响 original
+slice[0] = 100 // does not affect original
 ```
 
-### 8.5 字符串子串内存泄漏
+### 8.5 Substring Memory Leaks
 
 ```go
-// ❌ 潜在问题：子串持有整个底层数组
+// ❌ Potential issue: the substring retains the entire underlying array
 func getPrefix(s string) string {
-    return s[:10] // 仍引用整个 s 的底层数组
+    return s[:10] // still references the whole underlying array of s
 }
 
-// ✅ 正确：创建独立副本（Go 1.18+）
+// ✅ Correct: create an independent copy (Go 1.18+)
 func getPrefix(s string) string {
     return strings.Clone(s[:10])
 }
 
-// ✅ Go 1.18 之前
+// ✅ Before Go 1.18
 func getPrefix(s string) string {
     return string([]byte(s[:10]))
 }
 ```
 
-### 8.6 Interface Nil 陷阱
+### 8.6 The Interface Nil Trap
 
 ```go
-// ❌ 陷阱：interface 的 nil 判断
+// ❌ Trap: nil checks on interfaces
 type MyError struct{}
 func (e *MyError) Error() string { return "error" }
 
 func returnsError() error {
     var e *MyError = nil
-    return e // 返回的 error 不是 nil！
+    return e // the returned error is NOT nil!
 }
 
 func main() {
@@ -849,30 +849,30 @@ func main() {
     }
 }
 
-// ✅ 正确：显式返回 nil
+// ✅ Correct: return nil explicitly
 func returnsError() error {
     var e *MyError = nil
     if e == nil {
-        return nil // 显式返回 nil
+        return nil // explicitly return nil
     }
     return e
 }
 ```
 
-### 8.7 Time 比较
+### 8.7 Time Comparison
 
 ```go
-// ❌ 不推荐：直接使用 == 比较 time.Time
-if t1 == t2 { // 可能因为单调时钟差异而失败
+// ❌ Not recommended: comparing time.Time with ==
+if t1 == t2 { // may fail due to monotonic clock differences
     // ...
 }
 
-// ✅ 推荐：使用 Equal 方法
+// ✅ Recommended: use the Equal method
 if t1.Equal(t2) {
     // ...
 }
 
-// ✅ 比较时间范围
+// ✅ Comparing time ordering
 if t1.Before(t2) || t1.After(t2) {
     // ...
 }
@@ -880,110 +880,110 @@ if t1.Before(t2) || t1.After(t2) {
 
 ---
 
-## 9. 代码组织
+## 9. Code Organization
 
-### 9.1 包命名
+### 9.1 Package Naming
 
 ```go
-// ❌ 不推荐
-package common   // 过于宽泛
-package utils    // 过于宽泛
-package helpers  // 过于宽泛
-package models   // 按类型分组
+// ❌ Not recommended
+package common   // too broad
+package utils    // too broad
+package helpers  // too broad
+package models   // grouped by type
 
-// ✅ 推荐：按功能命名
-package user     // 用户相关功能
-package order    // 订单相关功能
-package postgres // PostgreSQL 实现
+// ✅ Recommended: name by functionality
+package user     // user-related functionality
+package order    // order-related functionality
+package postgres // PostgreSQL implementation
 ```
 
-### 9.2 避免循环依赖
+### 9.2 Avoid Circular Dependencies
 
 ```go
-// ❌ 循环依赖
+// ❌ Circular dependency
 // package a imports package b
 // package b imports package a
 
-// ✅ 解决方案1：提取共享类型到独立包
-// package types (共享类型)
+// ✅ Solution 1: extract shared types into a separate package
+// package types (shared types)
 // package a imports types
 // package b imports types
 
-// ✅ 解决方案2：使用接口解耦
-// package a 定义接口
-// package b 实现接口
+// ✅ Solution 2: decouple with interfaces
+// package a defines the interface
+// package b implements the interface
 ```
 
-### 9.3 导出标识符规范
+### 9.3 Exported Identifier Rules
 
 ```go
-// ✅ 只导出必要的标识符
+// ✅ Export only the identifiers that are needed
 type UserService struct {
-    db *sql.DB // 私有
+    db *sql.DB // private
 }
 
-func (s *UserService) GetUser(id int) (*User, error) // 公开
-func (s *UserService) validate(u *User) error         // 私有
+func (s *UserService) GetUser(id int) (*User, error) // public
+func (s *UserService) validate(u *User) error         // private
 
-// ✅ 内部包限制访问
-// internal/database/... 只能被同项目代码导入
+// ✅ Restrict access with internal packages
+// internal/database/... can only be imported by code in the same project
 ```
 
 ---
 
-## 10. 工具与检查
+## 10. Tools and Checks
 
-### 10.1 必须使用的工具
+### 10.1 Required Tools
 
 ```bash
-# 格式化（必须）
+# Formatting (required)
 gofmt -w .
 goimports -w .
 
-# 静态分析
+# Static analysis
 go vet ./...
 
-# 竞态检测
+# Race detection
 go test -race ./...
 
-# 逃逸分析
+# Escape analysis
 go build -gcflags '-m -m' ./...
 ```
 
-### 10.2 推荐的 Linter
+### 10.2 Recommended Linters
 
 ```bash
-# golangci-lint（集成多个 linter）
+# golangci-lint (bundles many linters)
 golangci-lint run
 
-# 常用检查项
-# - errcheck: 检查未处理的错误
-# - gosec: 安全检查
-# - ineffassign: 无效赋值
-# - staticcheck: 静态分析
-# - unused: 未使用的代码
+# Commonly used checks
+# - errcheck: unchecked errors
+# - gosec: security checks
+# - ineffassign: ineffective assignments
+# - staticcheck: static analysis
+# - unused: unused code
 ```
 
-### 10.3 Benchmark 测试
+### 10.3 Benchmarks
 
 ```go
-// ✅ 性能基准测试
+// ✅ Performance benchmark
 func BenchmarkProcess(b *testing.B) {
     data := prepareData()
-    b.ResetTimer() // 重置计时器
+    b.ResetTimer() // reset the timer
 
     for i := 0; i < b.N; i++ {
         Process(data)
     }
 }
 
-// 运行 benchmark
+// Run benchmarks
 // go test -bench=. -benchmem ./...
 ```
 
 ---
 
-## 参考资源
+## References
 
 - [Effective Go](https://go.dev/doc/effective_go)
 - [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments)

@@ -393,7 +393,7 @@ The [Test-Driven Verification](#test-driven-verification) section reproduces exa
 
 ### Parameterize SQL; never f-string user input
 
-> **跨语言 SQL 注入防护详见 [SQL Injection Prevention Guide](cross-cutting/sql-injection-prevention.md)**，含 Python/Java/Go/Node.js/PHP/C# 示例及 ORM 不安全用法。
+> **For cross-language SQL injection prevention, see the [SQL Injection Prevention Guide](cross-cutting/sql-injection-prevention.md)**, which includes Python/Java/Go/Node.js/PHP/C# examples and unsafe ORM usage.
 
 ### Don't widen CORS to credentials + wildcard
 

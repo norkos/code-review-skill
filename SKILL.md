@@ -179,34 +179,34 @@ Use labels to indicate priority:
 
 ## Language-Specific Guides
 
-根据审查的代码语言，查阅对应的详细指南：
+Based on the language of the code under review, consult the corresponding detailed guide:
 
 | Language/Framework | Reference File | Key Topics |
 |-------------------|----------------|------------|
 | **React** | [React Guide](reference/react.md) | Hooks, useEffect, React 19 Actions, RSC, Suspense, TanStack Query v5 |
-| **Vue 3** | [Vue Guide](reference/vue.md) | Composition API, 响应性系统, Props/Emits, Watchers, Composables |
-| **Angular 17+** | [Angular Guide](reference/angular.md) | Signals, Standalone, RxJS, Zoneless, 模板优化, 测试, 路由守卫, HttpInterceptor |
-| **Rust** | [Rust Guide](reference/rust.md) | 所有权/借用, Unsafe 审查, 异步代码, 取消安全性, 错误处理 |
-| **TypeScript** | [TypeScript Guide](reference/typescript.md) | 类型安全, async/await, 不可变性, 测试, 模块解析, TS 5.x |
-| **Python** | [Python Guide](reference/python.md) | 可变默认参数, 异常处理, 类属性 |
-| **Django / DRF** | [Django Guide](reference/django.md) | 安全审查, N+1 查询, Serializer 反模式, ViewSet, 异步视图 |
+| **Vue 3** | [Vue Guide](reference/vue.md) | Composition API, reactivity system, Props/Emits, Watchers, Composables |
+| **Angular 17+** | [Angular Guide](reference/angular.md) | Signals, Standalone, RxJS, Zoneless, template optimization, testing, route guards, HttpInterceptor |
+| **Rust** | [Rust Guide](reference/rust.md) | Ownership/borrowing, unsafe review, async code, cancellation safety, error handling |
+| **TypeScript** | [TypeScript Guide](reference/typescript.md) | Type safety, async/await, immutability, testing, module resolution, TS 5.x |
+| **Python** | [Python Guide](reference/python.md) | Mutable default arguments, exception handling, class attributes |
+| **Django / DRF** | [Django Guide](reference/django.md) | Security review, N+1 queries, Serializer anti-patterns, ViewSet, async views |
 | **FastAPI** | [FastAPI Guide](reference/fastapi.md) | Depends, Pydantic v2 validation, async correctness, sessions/N+1, auth vs authorization, test-driven verification |
-| **Java** | [Java Guide](reference/java.md) | Java 17/21 新特性, Spring Boot 3, 虚拟线程, Stream/Optional |
+| **Java** | [Java Guide](reference/java.md) | Java 17/21 features, Spring Boot 3, virtual threads, Stream/Optional |
 | **Java 8 / Legacy** | [Java 8 Guide](reference/java8.md) | Java 8, Spring Boot 2, javax.*, Stream/Optional, java.time, CompletableFuture |
 | **PHP** | [PHP Guide](reference/php.md) | PHP 8.x type system, PDO, security review, Composer, PHPUnit/PHPStan |
 | **Ruby / Rails** | [Ruby Guide](reference/ruby.md) | Ruby semantics, Rails 8, Active Record, Active Job, security, testing |
-| **C# / .NET** | [C# Guide](reference/csharp.md) | C# 12 特性, 异步编程, EF Core 性能, ASP.NET Core, LINQ |
-| **Go** | [Go Guide](reference/go.md) | 错误处理, goroutine/channel, context, 接口设计 |
-| **Kotlin / Android** | [Kotlin Guide](reference/kotlin.md) | 协程, Flow, Jetpack Compose, 空安全, 内存泄漏, 架构模式 |
+| **C# / .NET** | [C# Guide](reference/csharp.md) | C# 12 features, async programming, EF Core performance, ASP.NET Core, LINQ |
+| **Go** | [Go Guide](reference/go.md) | Error handling, goroutine/channel, context, interface design |
+| **Kotlin / Android** | [Kotlin Guide](reference/kotlin.md) | Coroutines, Flow, Jetpack Compose, null safety, memory leaks, architecture patterns |
 | **Swift / SwiftUI** | [Swift Guide](reference/swift.md) | Optionals, Swift Concurrency, Sendable/actors, SwiftUI property wrappers, value vs reference types, API design |
 | **Dart / Flutter** | [Dart Guide](reference/dart.md) | Widget rebuilds, const constructors, null safety, isolates, async in build, Riverpod/Bloc, platform channels, keys, disposal |
-| **NestJS** | [NestJS Guide](reference/nestjs.md) | 依赖注入, 分层架构, DTO 验证, Guard/Interceptor, 循环依赖 |
-| **Svelte / SvelteKit** | [Svelte Guide](reference/svelte.md) | Runes, Load 函数, Form Actions, Store 迁移, SSR/CSR 边界 |
-| **C** | [C Guide](reference/c.md) | 指针/缓冲区, 内存安全, UB, 安全编码, 可移植性, 测试 |
-| **C++** | [C++ Guide](reference/cpp.md) | RAII, 智能指针, C++20/23, constexpr, 测试 |
+| **NestJS** | [NestJS Guide](reference/nestjs.md) | Dependency injection, layered architecture, DTO validation, Guard/Interceptor, circular dependencies |
+| **Svelte / SvelteKit** | [Svelte Guide](reference/svelte.md) | Runes, load functions, Form Actions, store migration, SSR/CSR boundary |
+| **C** | [C Guide](reference/c.md) | Pointers/buffers, memory safety, UB, secure coding, portability, testing |
+| **C++** | [C++ Guide](reference/cpp.md) | RAII, smart pointers, C++20/23, constexpr, testing |
 | **Zig** | [Zig Guide](reference/zig.md) | Allocators, error unions, defer/errdefer, comptime, C interop |
-| **CSS/Less/Sass** | [CSS Guide](reference/css-less-sass.md) | 变量规范, !important, 性能优化, 响应式, 兼容性 |
-| **Qt** | [Qt Guide](reference/qt.md) | 对象模型, 信号/槽, Model/View, QML, Qt6 迁移, 测试 |
+| **CSS/Less/Sass** | [CSS Guide](reference/css-less-sass.md) | Variable conventions, !important, performance optimization, responsive design, compatibility |
+| **Qt** | [Qt Guide](reference/qt.md) | Object model, signals/slots, Model/View, QML, Qt6 migration, testing |
 
 ## Cross-Cutting Guides
 
@@ -216,7 +216,7 @@ Language-agnostic patterns applicable to all code reviews:
 |-------|----------------|------------|
 | **Architecture Review** | [Architecture Review Guide](reference/architecture-review-guide.md) | SOLID, anti-patterns, coupling/cohesion, dependency direction |
 | **Performance Review** | [Performance Review Guide](reference/performance-review-guide.md) | Web Vitals, N+1, algorithm complexity, memory leaks, caching |
-| **Security Review** | [Security Review Guide](reference/security-review-guide.md) | SQLi, XSS, CSRF, SSRF, IDOR, 命令注入, 跨语言示例 |
+| **Security Review** | [Security Review Guide](reference/security-review-guide.md) | SQLi, XSS, CSRF, SSRF, IDOR, command injection, cross-language examples |
 | **Universal Quality** | [Universal Quality Guide](reference/code-quality-universal.md) | Reuse audit, parameter sprawl, leaky abstractions, nested conditionals, stringly-typed code, TOCTOU, no-op updates, redundant state |
 | **Common Bugs** | [Common Bugs Checklist](reference/common-bugs-checklist.md) | Language-specific bug patterns, common pitfalls |
 | **SQL Injection Prevention** | [SQL Injection Guide](reference/cross-cutting/sql-injection-prevention.md) | Parameterized queries, ORM safety, 6 languages, dynamic identifiers, detection |
@@ -228,5 +228,5 @@ Language-agnostic patterns applicable to all code reviews:
 
 ## Additional Resources
 
-- [PR Review Template](assets/pr-review-template.md) - PR 审查评论模板
-- [Review Checklist](assets/review-checklist.md) - 快速参考清单
+- [PR Review Template](assets/pr-review-template.md) - PR review comment template
+- [Review Checklist](assets/review-checklist.md) - Quick reference checklist

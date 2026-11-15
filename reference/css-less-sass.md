@@ -1,13 +1,13 @@
 # CSS / Less / Sass Review Guide
 
-CSS 及预处理器代码审查指南，覆盖性能、可维护性、响应式设计和浏览器兼容性。
+A code review guide for CSS and preprocessors, covering performance, maintainability, responsive design, and browser compatibility.
 
-## CSS 变量 vs 硬编码
+## CSS Variables vs Hardcoded Values
 
-### 应该使用变量的场景
+### When to Use Variables
 
 ```css
-/* ❌ 硬编码 - 难以维护 */
+/* ❌ Hardcoded - hard to maintain */
 .button {
   background: #3b82f6;
   border-radius: 8px;
@@ -17,7 +17,7 @@ CSS 及预处理器代码审查指南，覆盖性能、可维护性、响应式�
   border-radius: 8px;
 }
 
-/* ✅ 使用 CSS 变量 */
+/* ✅ Use CSS variables */
 :root {
   --color-primary: #3b82f6;
   --radius-md: 8px;
@@ -32,12 +32,12 @@ CSS 及预处理器代码审查指南，覆盖性能、可维护性、响应式�
 }
 ```
 
-### 变量命名规范
+### Variable Naming Conventions
 
 ```css
-/* 推荐的变量分类 */
+/* Recommended variable categories */
 :root {
-  /* 颜色 */
+  /* Colors */
   --color-primary: #3b82f6;
   --color-primary-hover: #2563eb;
   --color-text: #1f2937;
@@ -45,40 +45,40 @@ CSS 及预处理器代码审查指南，覆盖性能、可维护性、响应式�
   --color-bg: #ffffff;
   --color-border: #e5e7eb;
 
-  /* 间距 */
+  /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
 
-  /* 字体 */
+  /* Typography */
   --font-size-sm: 14px;
   --font-size-base: 16px;
   --font-size-lg: 18px;
   --font-weight-normal: 400;
   --font-weight-bold: 700;
 
-  /* 圆角 */
+  /* Border radius */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-full: 9999px;
 
-  /* 阴影 */
+  /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
 
-  /* 过渡 */
+  /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 300ms ease;
 }
 ```
 
-### 变量作用域建议
+### Variable Scoping Recommendations
 
 ```css
-/* ✅ 组件级变量 - 减少全局污染 */
+/* ✅ Component-level variables - reduce global pollution */
 .card {
   --card-padding: var(--spacing-md);
   --card-radius: var(--radius-md);
@@ -87,113 +87,113 @@ CSS 及预处理器代码审查指南，覆盖性能、可维护性、响应式�
   border-radius: var(--card-radius);
 }
 
-/* ⚠️ 避免频繁用 JS 动态修改变量 - 影响性能 */
+/* ⚠️ Avoid frequently changing variables from JS - hurts performance */
 ```
 
-### 审查清单
+### Review Checklist
 
-- [ ] 颜色值是否使用变量？
-- [ ] 间距是否来自设计系统？
-- [ ] 重复值是否提取为变量？
-- [ ] 变量命名是否语义化？
+- [ ] Are color values using variables?
+- [ ] Does spacing come from the design system?
+- [ ] Are repeated values extracted into variables?
+- [ ] Are variable names semantic?
 
 ---
 
-## !important 使用规范
+## !important Usage Guidelines
 
-### 何时可以使用
+### When It Is Acceptable
 
 ```css
-/* ✅ 工具类 - 明确需要覆盖 */
+/* ✅ Utility classes - explicitly meant to override */
 .hidden { display: none !important; }
 .sr-only { position: absolute !important; }
 
-/* ✅ 覆盖第三方库样式（无法修改源码时） */
+/* ✅ Overriding third-party library styles (when the source cannot be changed) */
 .third-party-modal {
   z-index: 9999 !important;
 }
 
-/* ✅ 打印样式 */
+/* ✅ Print styles */
 @media print {
   .no-print { display: none !important; }
 }
 ```
 
-### 何时禁止使用
+### When It Is Forbidden
 
 ```css
-/* ❌ 解决特异性问题 - 应该重构选择器 */
+/* ❌ Solving specificity issues - refactor the selector instead */
 .button {
-  background: blue !important;  /* 为什么需要 !important? */
+  background: blue !important;  /* Why is !important needed? */
 }
 
-/* ❌ 覆盖自己写的样式 */
+/* ❌ Overriding your own styles */
 .card { padding: 20px; }
-.card { padding: 30px !important; }  /* 直接修改原规则 */
+.card { padding: 30px !important; }  /* Modify the original rule directly */
 
-/* ❌ 在组件样式中 */
+/* ❌ Inside component styles */
 .my-component .title {
-  font-size: 24px !important;  /* 破坏组件封装 */
+  font-size: 24px !important;  /* Breaks component encapsulation */
 }
 ```
 
-### 替代方案
+### Alternatives
 
 ```css
-/* 问题：需要覆盖 .btn 的样式 */
+/* Problem: need to override .btn styles */
 
-/* ❌ 使用 !important */
+/* ❌ Using !important */
 .my-btn {
   background: red !important;
 }
 
-/* ✅ 提高特异性 */
+/* ✅ Increase specificity */
 button.my-btn {
   background: red;
 }
 
-/* ✅ 使用更具体的选择器 */
+/* ✅ Use a more specific selector */
 .container .my-btn {
   background: red;
 }
 
-/* ✅ 使用 :where() 降低被覆盖样式的特异性 */
+/* ✅ Use :where() to lower the specificity of the styles being overridden */
 :where(.btn) {
-  background: blue;  /* 特异性为 0 */
+  background: blue;  /* Specificity is 0 */
 }
 .my-btn {
-  background: red;   /* 可以正常覆盖 */
+  background: red;   /* Overrides normally */
 }
 ```
 
-### 审查问题
+### Review Comments
 
 ```markdown
-🔴 [blocking] "发现 15 处 !important，请说明每处的必要性"
-🟡 [important] "这个 !important 可以通过调整选择器特异性来解决"
-💡 [suggestion] "考虑使用 CSS Layers (@layer) 来管理样式优先级"
+🔴 [blocking] "Found 15 uses of !important; please justify each one"
+🟡 [important] "This !important can be resolved by adjusting selector specificity"
+💡 [suggestion] "Consider using CSS Layers (@layer) to manage style precedence"
 ```
 
 ---
 
-## 性能考虑
+## Performance Considerations
 
-### 🔴 高危性能问题
+### 🔴 High-Risk Performance Issues
 
-#### 1. `transition: all` 问题
+#### 1. The `transition: all` Problem
 
 ```css
-/* ❌ 性能杀手 - 浏览器检查所有可动画属性 */
+/* ❌ Performance killer - the browser checks every animatable property */
 .button {
   transition: all 0.3s ease;
 }
 
-/* ✅ 明确指定属性 */
+/* ✅ Specify properties explicitly */
 .button {
   transition: background-color 0.3s ease, transform 0.3s ease;
 }
 
-/* ✅ 多属性时使用变量 */
+/* ✅ Use a variable when there are multiple properties */
 .button {
   --transition-duration: 0.3s;
   transition:
@@ -203,10 +203,10 @@ button.my-btn {
 }
 ```
 
-#### 2. box-shadow 动画
+#### 2. Animating box-shadow
 
 ```css
-/* ❌ 每帧触发重绘 - 严重影响性能 */
+/* ❌ Triggers a repaint every frame - severe performance impact */
 .card {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   transition: box-shadow 0.3s ease;
@@ -215,7 +215,7 @@ button.my-btn {
   box-shadow: 0 8px 16px rgba(0,0,0,0.2);
 }
 
-/* ✅ 使用伪元素 + opacity */
+/* ✅ Use a pseudo-element + opacity */
 .card {
   position: relative;
 }
@@ -234,117 +234,117 @@ button.my-btn {
 }
 ```
 
-#### 3. 触发布局（Reflow）的属性
+#### 3. Properties That Trigger Layout (Reflow)
 
 ```css
-/* ❌ 动画这些属性会触发布局重计算 */
+/* ❌ Animating these properties triggers layout recalculation */
 .bad-animation {
   transition: width 0.3s, height 0.3s, top 0.3s, left 0.3s, margin 0.3s;
 }
 
-/* ✅ 只动画 transform 和 opacity（仅触发合成） */
+/* ✅ Only animate transform and opacity (compositing only) */
 .good-animation {
   transition: transform 0.3s, opacity 0.3s;
 }
 
-/* 位移用 translate 代替 top/left */
+/* Use translate instead of top/left for movement */
 .move {
   transform: translateX(100px);  /* ✅ */
   /* left: 100px; */             /* ❌ */
 }
 
-/* 缩放用 scale 代替 width/height */
+/* Use scale instead of width/height for resizing */
 .grow {
   transform: scale(1.1);  /* ✅ */
   /* width: 110%; */      /* ❌ */
 }
 ```
 
-### 🟡 中等性能问题
+### 🟡 Moderate Performance Issues
 
-#### 复杂选择器
+#### Complex Selectors
 
 ```css
-/* ❌ 过深的嵌套 - 选择器匹配慢 */
+/* ❌ Overly deep nesting - slow selector matching */
 .page .container .content .article .section .paragraph span {
   color: red;
 }
 
-/* ✅ 扁平化 */
+/* ✅ Flatten */
 .article-text {
   color: red;
 }
 
-/* ❌ 通配符选择器 */
-* { box-sizing: border-box; }           /* 影响所有元素 */
-[class*="icon-"] { display: inline; }   /* 属性选择器较慢 */
+/* ❌ Universal selectors */
+* { box-sizing: border-box; }           /* Affects every element */
+[class*="icon-"] { display: inline; }   /* Attribute selectors are slower */
 
-/* ✅ 限制范围 */
+/* ✅ Limit the scope */
 .icon-box * { box-sizing: border-box; }
 ```
 
-#### 大量阴影和滤镜
+#### Heavy Shadows and Filters
 
 ```css
-/* ⚠️ 复杂阴影影响渲染性能 */
+/* ⚠️ Complex shadows hurt rendering performance */
 .heavy-shadow {
   box-shadow:
     0 1px 2px rgba(0,0,0,0.1),
     0 2px 4px rgba(0,0,0,0.1),
     0 4px 8px rgba(0,0,0,0.1),
     0 8px 16px rgba(0,0,0,0.1),
-    0 16px 32px rgba(0,0,0,0.1);  /* 5 层阴影 */
+    0 16px 32px rgba(0,0,0,0.1);  /* 5 shadow layers */
 }
 
-/* ⚠️ 滤镜消耗 GPU */
+/* ⚠️ Filters consume GPU resources */
 .blur-heavy {
   filter: blur(20px) brightness(1.2) contrast(1.1);
-  backdrop-filter: blur(10px);  /* 更消耗性能 */
+  backdrop-filter: blur(10px);  /* Even more expensive */
 }
 ```
 
-### 性能优化建议
+### Performance Optimization Tips
 
 ```css
-/* 使用 will-change 提示浏览器（谨慎使用） */
+/* Use will-change to hint the browser (use sparingly) */
 .animated-element {
   will-change: transform, opacity;
 }
 
-/* 动画完成后移除 will-change */
+/* Remove will-change after the animation finishes */
 .animated-element.idle {
   will-change: auto;
 }
 
-/* 使用 contain 限制重绘范围 */
+/* Use contain to limit the repaint area */
 .card {
-  contain: layout paint;  /* 告诉浏览器内部变化不影响外部 */
+  contain: layout paint;  /* Tells the browser internal changes don't affect the outside */
 }
 ```
 
-### 审查清单
+### Review Checklist
 
-- [ ] 是否使用 `transition: all`？
-- [ ] 是否动画 width/height/top/left？
-- [ ] box-shadow 是否被动画？
-- [ ] 选择器嵌套是否超过 3 层？
-- [ ] 是否有不必要的 `will-change`？
+- [ ] Is `transition: all` used?
+- [ ] Are width/height/top/left animated?
+- [ ] Is box-shadow animated?
+- [ ] Is selector nesting deeper than 3 levels?
+- [ ] Is there unnecessary `will-change`?
 
 ---
 
-## 响应式设计检查点
+## Responsive Design Checkpoints
 
-### Mobile First 原则
+### Mobile First Principle
 
 ```css
-/* ✅ Mobile First - 基础样式针对移动端 */
+/* ✅ Mobile First - base styles target mobile */
 .container {
   padding: 16px;
   display: flex;
   flex-direction: column;
 }
 
-/* 逐步增强 */
+/* Progressive enhancement */
 @media (min-width: 768px) {
   .container {
     padding: 24px;
@@ -360,7 +360,7 @@ button.my-btn {
   }
 }
 
-/* ❌ Desktop First - 需要覆盖更多样式 */
+/* ❌ Desktop First - requires overriding more styles */
 .container {
   max-width: 1200px;
   padding: 32px;
@@ -382,63 +382,63 @@ button.my-btn {
 }
 ```
 
-### 断点建议
+### Breakpoint Recommendations
 
 ```css
-/* 推荐断点（基于内容而非设备） */
+/* Recommended breakpoints (based on content, not devices) */
 :root {
-  --breakpoint-sm: 640px;   /* 大手机 */
-  --breakpoint-md: 768px;   /* 平板竖屏 */
-  --breakpoint-lg: 1024px;  /* 平板横屏/小笔记本 */
-  --breakpoint-xl: 1280px;  /* 桌面 */
-  --breakpoint-2xl: 1536px; /* 大桌面 */
+  --breakpoint-sm: 640px;   /* Large phones */
+  --breakpoint-md: 768px;   /* Tablets, portrait */
+  --breakpoint-lg: 1024px;  /* Tablets landscape / small laptops */
+  --breakpoint-xl: 1280px;  /* Desktop */
+  --breakpoint-2xl: 1536px; /* Large desktop */
 }
 
-/* 使用示例 */
+/* Usage example */
 @media (min-width: 768px) { /* md */ }
 @media (min-width: 1024px) { /* lg */ }
 ```
 
-### 响应式审查清单
+### Responsive Review Checklist
 
-- [ ] 是否采用 Mobile First？
-- [ ] 断点是否基于内容断裂点而非设备？
-- [ ] 是否避免断点重叠？
-- [ ] 文字是否使用相对单位（rem/em）？
-- [ ] 触摸目标是否足够大（≥44px）？
-- [ ] 是否测试了横竖屏切换？
+- [ ] Is Mobile First used?
+- [ ] Are breakpoints based on where content breaks rather than on devices?
+- [ ] Are overlapping breakpoints avoided?
+- [ ] Does text use relative units (rem/em)?
+- [ ] Are touch targets large enough (>=44px)?
+- [ ] Has portrait/landscape switching been tested?
 
-### 常见问题
+### Common Issues
 
 ```css
-/* ❌ 固定宽度 */
+/* ❌ Fixed width */
 .container {
   width: 1200px;
 }
 
-/* ✅ 最大宽度 + 弹性 */
+/* ✅ Max width + fluid */
 .container {
   width: 100%;
   max-width: 1200px;
   padding-inline: 16px;
 }
 
-/* ❌ 固定高度的文本容器 */
+/* ❌ Fixed-height text container */
 .text-box {
-  height: 100px;  /* 文字可能溢出 */
+  height: 100px;  /* Text may overflow */
 }
 
-/* ✅ 最小高度 */
+/* ✅ Min height */
 .text-box {
   min-height: 100px;
 }
 
-/* ❌ 小触摸目标 */
+/* ❌ Small touch targets */
 .small-button {
-  padding: 4px 8px;  /* 太小，难以点击 */
+  padding: 4px 8px;  /* Too small, hard to tap */
 }
 
-/* ✅ 足够的触摸区域 */
+/* ✅ Sufficient touch area */
 .touch-button {
   min-height: 44px;
   min-width: 44px;
@@ -448,40 +448,40 @@ button.my-btn {
 
 ---
 
-## 浏览器兼容性
+## Browser Compatibility
 
-### 需要检查的特性
+### Features to Check
 
-| 特性 | 兼容性 | 建议 |
+| Feature | Compatibility | Recommendation |
 |------|--------|------|
-| CSS Grid | 现代浏览器 ✅ | IE 需要 Autoprefixer + 测试 |
-| Flexbox | 广泛支持 ✅ | 旧版需要前缀 |
-| CSS Variables | 现代浏览器 ✅ | IE 不支持，需要回退 |
-| `gap` (flexbox) | 较新 ⚠️ | Safari 14.1+ |
-| `:has()` | 较新 ⚠️ | Firefox 121+ |
-| `container queries` | 较新 ⚠️ | 2023 年后的浏览器 |
-| `@layer` | 较新 ⚠️ | 检查目标浏览器 |
+| CSS Grid | Modern browsers ✅ | IE needs Autoprefixer + testing |
+| Flexbox | Widely supported ✅ | Older versions need prefixes |
+| CSS Variables | Modern browsers ✅ | Not supported in IE, needs fallback |
+| `gap` (flexbox) | Newer ⚠️ | Safari 14.1+ |
+| `:has()` | Newer ⚠️ | Firefox 121+ |
+| `container queries` | Newer ⚠️ | Browsers from 2023 onward |
+| `@layer` | Newer ⚠️ | Check target browsers |
 
-### 回退策略
+### Fallback Strategies
 
 ```css
-/* CSS 变量回退 */
+/* CSS variable fallback */
 .button {
-  background: #3b82f6;              /* 回退值 */
-  background: var(--color-primary); /* 现代浏览器 */
+  background: #3b82f6;              /* Fallback value */
+  background: var(--color-primary); /* Modern browsers */
 }
 
-/* Flexbox gap 回退 */
+/* Flexbox gap fallback */
 .flex-container {
   display: flex;
   gap: 16px;
 }
-/* 旧浏览器回退 */
+/* Fallback for older browsers */
 .flex-container > * + * {
   margin-left: 16px;
 }
 
-/* Grid 回退 */
+/* Grid fallback */
 .grid {
   display: flex;
   flex-wrap: wrap;
@@ -494,16 +494,16 @@ button.my-btn {
 }
 ```
 
-### Autoprefixer 配置
+### Autoprefixer Configuration
 
 ```javascript
 // postcss.config.js
 module.exports = {
   plugins: [
     require('autoprefixer')({
-      // 根据 browserslist 配置
-      grid: 'autoplace',  // 启用 Grid 前缀（IE 支持）
-      flexbox: 'no-2009', // 只用现代 flexbox 语法
+      // Driven by the browserslist config
+      grid: 'autoplace',  // Enable Grid prefixes (IE support)
+      flexbox: 'no-2009', // Only use modern flexbox syntax
     }),
   ],
 };
@@ -514,40 +514,40 @@ module.exports = {
     "> 1%",
     "last 2 versions",
     "not dead",
-    "not ie 11"  // 根据项目需求
+    "not ie 11"  // Depending on project requirements
   ]
 }
 ```
 
-### 审查清单
+### Review Checklist
 
-- [ ] 是否检查了 [Can I Use](https://caniuse.com)？
-- [ ] 新特性是否有回退方案？
-- [ ] 是否配置了 Autoprefixer？
-- [ ] browserslist 是否符合项目要求？
-- [ ] 是否在目标浏览器中测试？
+- [ ] Did you check [Can I Use](https://caniuse.com)?
+- [ ] Do new features have fallbacks?
+- [ ] Is Autoprefixer configured?
+- [ ] Does browserslist match project requirements?
+- [ ] Has it been tested in target browsers?
 
 ---
 
-## Less / Sass 特定问题
+## Less / Sass Specific Issues
 
-### 嵌套深度
+### Nesting Depth
 
 ```scss
-/* ❌ 过深嵌套 - 编译后选择器过长 */
+/* ❌ Overly deep nesting - compiled selectors are too long */
 .page {
   .container {
     .content {
       .article {
         .title {
-          color: red;  // 编译为 .page .container .content .article .title
+          color: red;  // Compiles to .page .container .content .article .title
         }
       }
     }
   }
 }
 
-/* ✅ 最多 3 层 */
+/* ✅ At most 3 levels */
 .article {
   &__title {
     color: red;
@@ -559,100 +559,100 @@ module.exports = {
 }
 ```
 
-### Mixin vs Extend vs 变量
+### Mixin vs Extend vs Variables
 
 ```scss
 @use 'sass:color';
 
-/* 变量 - 用于单个值 */
+/* Variables - for single values */
 $primary-color: #3b82f6;
 
-/* Mixin - 用于可配置的代码块 */
+/* Mixin - for configurable blocks of code */
 @mixin button-variant($bg, $text) {
   background: $bg;
   color: $text;
   &:hover {
-    // Dart Sass 已弃用全局 darken()/lighten()，改用 color 模块
+    // Dart Sass deprecated global darken()/lighten(); use the color module instead
     background: color.adjust($bg, $lightness: -10%);
-    // color.scale($bg, $lightness: -10%) 按比例调整，深浅过渡更自然
+    // color.scale($bg, $lightness: -10%) adjusts proportionally for smoother shading
   }
 }
 
-/* Extend - 用于共享相同样式（谨慎使用） */
+/* Extend - for sharing identical styles (use sparingly) */
 %visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip-path: inset(50%);  /* clip: rect() 已弃用，改用 clip-path */
-  white-space: nowrap;    /* 避免内容被挤成一列后撑开布局 */
+  clip-path: inset(50%);  /* clip: rect() is deprecated; use clip-path */
+  white-space: nowrap;    /* Prevents content from wrapping into a column and stretching the layout */
 }
 
 .sr-only {
   @extend %visually-hidden;
 }
 
-/* ⚠️ @extend 的问题 */
-// 可能产生意外的选择器组合
-// 不能在 @media 中使用
-// 优先使用 mixin
+/* ⚠️ Problems with @extend */
+// Can produce unexpected selector combinations
+// Cannot be used inside @media
+// Prefer mixins
 ```
 
-### 审查清单
+### Review Checklist
 
-- [ ] 嵌套是否超过 3 层？
-- [ ] 是否滥用 @extend？
-- [ ] Mixin 是否过于复杂？
-- [ ] 编译后的 CSS 大小是否合理？
+- [ ] Is nesting deeper than 3 levels?
+- [ ] Is @extend overused?
+- [ ] Are mixins overly complex?
+- [ ] Is the compiled CSS size reasonable?
 
 ---
 
-## 快速审查清单
+## Quick Review Checklist
 
-### 🔴 必须修复
+### 🔴 Must Fix
 
 ```markdown
 □ transition: all
-□ 动画 width/height/top/left/margin
-□ 大量 !important
-□ 硬编码的颜色/间距重复 >3 次
-□ 选择器嵌套 >4 层
+□ Animating width/height/top/left/margin
+□ Heavy use of !important
+□ Hardcoded colors/spacing repeated >3 times
+□ Selector nesting >4 levels
 ```
 
-### 🟡 建议修复
+### 🟡 Should Fix
 
 ```markdown
-□ 缺少响应式处理
-□ 使用 Desktop First
-□ 复杂 box-shadow 被动画
-□ 缺少浏览器兼容回退
-□ CSS 变量作用域过大
+□ Missing responsive handling
+□ Using Desktop First
+□ Complex box-shadow being animated
+□ Missing browser compatibility fallbacks
+□ CSS variable scope too broad
 ```
 
-### 🟢 优化建议
+### 🟢 Optimization Suggestions
 
 ```markdown
-□ 可以使用 CSS Grid 简化布局
-□ 可以使用 CSS 变量提取重复值
-□ 可以使用 @layer 管理优先级
-□ 可以添加 contain 优化性能
+□ Could use CSS Grid to simplify layout
+□ Could use CSS variables to extract repeated values
+□ Could use @layer to manage precedence
+□ Could add contain to improve performance
 ```
 
 ---
 
-## 工具推荐
+## Recommended Tools
 
-| 工具 | 用途 |
+| Tool | Purpose |
 |------|------|
-| [Stylelint](https://stylelint.io/) | CSS 代码检查 |
-| [PurgeCSS](https://purgecss.com/) | 移除未使用 CSS |
-| [Autoprefixer](https://autoprefixer.github.io/) | 自动添加前缀 |
-| [CSS Stats](https://cssstats.com/) | 分析 CSS 统计 |
-| [Can I Use](https://caniuse.com/) | 浏览器兼容性查询 |
+| [Stylelint](https://stylelint.io/) | CSS linting |
+| [PurgeCSS](https://purgecss.com/) | Remove unused CSS |
+| [Autoprefixer](https://autoprefixer.github.io/) | Automatically add prefixes |
+| [CSS Stats](https://cssstats.com/) | Analyze CSS statistics |
+| [Can I Use](https://caniuse.com/) | Browser compatibility lookup |
 
 ---
 
-## 参考资源
+## References
 
 - [CSS Performance Optimization - MDN](https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Performance/CSS)
 - [What a CSS Code Review Might Look Like - CSS-Tricks](https://css-tricks.com/what-a-css-code-review-might-look-like/)

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>code-review-skill(1) — User Commands</title>
+  <title>code-review-skill(1) - User Commands</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -170,25 +170,6 @@
       gap: 1rem;
       flex-wrap: wrap;
     }
-
-    .lang-toggle {
-      font-size: 12px;
-      color: var(--fg-dim);
-      letter-spacing: 0.04em;
-    }
-    .lang-toggle a {
-      color: var(--fg-dim);
-      text-decoration: none;
-      border-bottom: 1px dotted var(--fg-faint);
-      padding-bottom: 1px;
-      margin: 0 0.25em;
-    }
-    .lang-toggle a.on {
-      color: var(--amber);
-      border-bottom-color: var(--amber);
-    }
-    .lang-toggle a:hover { color: var(--amber); border-bottom-color: var(--amber); }
-    .lang-toggle .sep { color: var(--fg-faint); }
 
     .one-liner-sub {
       color: var(--fg-dim);
@@ -427,9 +408,6 @@
       <span>
         <span class="dim">$&nbsp;</span><span class="em">man code-review-skill</span><span class="cursor"></span>
       </span>
-      <span class="lang-toggle">
-        <span class="dim">LANG=</span><a href="index.html" class="on">zh_CN</a><span class="sep">&nbsp;|&nbsp;</span><a href="index.en.html">en_US</a>
-      </span>
     </div>
     <div class="one-liner-sub">
       v1.0 &middot; awesome-skills &middot; MIT &middot; 21 languages &middot; 21,000+ lines
@@ -440,7 +418,7 @@
   <h2 class="sec">NAME</h2>
   <section class="body">
     <p>
-      <span class="em">code-review-skill</span> &mdash; 面向 Claude Code 的全面、模块化代码审查技能
+      <span class="em">code-review-skill</span> &mdash; A comprehensive, modular code review skill for Claude Code
     </p>
   </section>
 
@@ -456,9 +434,9 @@
   <!-- ═══ DESCRIPTION ═══ -->
   <h2 class="sec">DESCRIPTION</h2>
   <section class="body">
-    <p>一份生产级的代码审查技能。它把 AI 辅助的代码审查从模糊建议提升为结构化、一致、专业级的协作流程。</p>
-    <p>核心仅约 <span class="em">220 行</span>，按需调阅共计 <span class="em">21,000+ 行</span> 的语言指南。覆盖 <span class="em">20+ 种</span> 主流语言与框架——按需加载，零冗余。</p>
-    <p>每一条审查意见都带有明确的严重性标记。每一次审查都按四个阶段推进：从 PR 上下文 &middot; 高层级评估 &middot; 逐行分析 &middot; 总结决策。</p>
+    <p>A production-grade code review skill. It transforms AI-assisted code review from vague suggestions into a structured, consistent, expert-level collaborative process.</p>
+    <p>Core is only <span class="em">~220 lines</span>; the full <span class="em">21,000+ lines</span> of language guides load on demand. Covers <span class="em">20+</span> mainstream languages and frameworks &mdash; progressive loading, zero overhead.</p>
+    <p>Every finding carries an explicit severity label. Every review proceeds through four phases: PR context &middot; high-level assessment &middot; line-by-line analysis &middot; summary &amp; decision.</p>
   </section>
 
   <!-- ═══ LANGUAGES ═══ -->
@@ -517,13 +495,13 @@
 
     <dl class="phase-list" style="margin-top:1.5rem;">
       <dt>1. context gathering <span class="dim">— 2-3 min</span></dt>
-      <dd>读 PR 描述与关联 issue，评估规模，检查 CI 状态，理解业务需求。</dd>
+      <dd>Read the PR description and linked issues, assess scope, check CI status, understand the business intent.</dd>
       <dt>2. high-level review <span class="dim">— 5-10 min</span></dt>
-      <dd>评估架构合理性、性能影响面、文件组织、测试策略。先看全局。</dd>
+      <dd>Evaluate architectural fit, performance impact, file organization, test strategy. See the whole first.</dd>
       <dt>3. line-by-line analysis <span class="dim">— 10-20 min</span></dt>
-      <dd>逻辑正确性 &middot; 安全 &middot; 性能 &middot; 可维护性 &middot; 边界情况。一一过目。</dd>
+      <dd>Logic correctness &middot; security &middot; performance &middot; maintainability &middot; edge cases. One by one.</dd>
       <dt>4. summary &amp; decision <span class="dim">— 2-3 min</span></dt>
-      <dd>汇总问题，表扬亮点，给出 approve / comment / request-changes。</dd>
+      <dd>Summarize findings, name what was done well, deliver approve / comment / request-changes.</dd>
     </dl>
   </section>
 
@@ -533,27 +511,27 @@
     <ul class="sev-list">
       <li>
         <span class="label"><span class="red">●</span>&nbsp;[blocking]</span>
-        <span class="desc">必须修复 <span class="aside">— 合并前解决；安全漏洞 / 数据正确性 / 严重逻辑</span></span>
+        <span class="desc">must fix <span class="aside">— resolve before merge; security / correctness / serious logic</span></span>
       </li>
       <li>
         <span class="label"><span style="color:#d68a3d;">●</span>&nbsp;[important]</span>
-        <span class="desc">应当修复 <span class="aside">— 强烈建议；有分歧应讨论</span></span>
+        <span class="desc">should fix <span class="aside">— strongly recommended; discuss if you disagree</span></span>
       </li>
       <li>
         <span class="label"><span style="color:#c7a648;">●</span>&nbsp;[nit]</span>
-        <span class="desc">细节建议 <span class="aside">— 风格或偏好，不阻塞合并</span></span>
+        <span class="desc">nice to have <span class="aside">— style or preference; non-blocking</span></span>
       </li>
       <li>
         <span class="label"><span class="blue">●</span>&nbsp;[suggestion]</span>
-        <span class="desc">可选优化 <span class="aside">— 替代方案，由作者决定</span></span>
+        <span class="desc">alternative <span class="aside">— worth considering; author decides</span></span>
       </li>
       <li>
         <span class="label"><span style="color:#9078b8;">●</span>&nbsp;[learning]</span>
-        <span class="desc">知识分享 <span class="aside">— 教育性说明，无需采取行动</span></span>
+        <span class="desc">educational <span class="aside">— no action needed; share knowledge</span></span>
       </li>
       <li>
         <span class="label"><span class="green">●</span>&nbsp;[praise]</span>
-        <span class="desc">表扬肯定 <span class="aside">— 看到好代码就说出来</span></span>
+        <span class="desc">good work <span class="aside">— say it out loud when you see it</span></span>
       </li>
     </ul>
   </section>
@@ -562,12 +540,12 @@
   <h2 class="sec">INSTALLATION</h2>
   <section class="body">
 
-    <p>用 <span class="em">npx skills</span> 安装到主流 Agent，或克隆到 Claude Code skills 目录。</p>
+    <p>Install with <span class="em">npx skills</span> for mainstream agents, or clone into the Claude Code skills directory.</p>
 
-<pre class="codeblock"><span class="cmt"># npx skills（Cursor / Claude Code / Codex / OpenCode 等）</span>
+<pre class="codeblock"><span class="cmt"># npx skills (Cursor / Claude Code / Codex / OpenCode / others)</span>
 <span class="prompt">$</span> <span class="cmd">npx skills add</span> <span class="arg">awesome-skills/code-review-skill</span> --skill code-review-skill
 
-<span class="cmt"># 或克隆到 Claude Code skills 目录 — macOS / Linux</span>
+<span class="cmt"># or clone into the Claude Code skills directory — macOS / Linux</span>
 <span class="prompt">$</span> <span class="cmd">git clone</span> <span class="arg">https://github.com/awesome-skills/code-review-skill.git</span> \
     ~/.claude/skills/code-review-skill
 
@@ -582,19 +560,19 @@
     <ul class="examples">
       <li>
         <span class="q">Use code-review-skill to review this PR</span>
-        <span class="note">激活完整四阶段流程</span>
+        <span class="note">runs the full four-phase review</span>
       </li>
       <li>
         <span class="q">Review this React component</span>
-        <span class="note">加载 react.md &middot; 检查 Hooks &middot; Server Components</span>
+        <span class="note">loads react.md &middot; checks Hooks &middot; Server Components</span>
       </li>
       <li>
         <span class="q">Security review of this Go service</span>
-        <span class="note">同时加载 go.md + security-review-guide.md</span>
+        <span class="note">loads go.md + security-review-guide.md together</span>
       </li>
       <li>
         <span class="q">Architecture review</span>
-        <span class="note">加载架构指南 &middot; SOLID &middot; 反模式 &middot; 耦合度</span>
+        <span class="note">loads the architecture guide &middot; SOLID &middot; anti-patterns &middot; coupling</span>
       </li>
     </ul>
   </section>
@@ -604,17 +582,17 @@
   <section class="body">
 <pre class="tree">
 <span class="dir">~/.claude/skills/code-review-skill/</span>
-<span class="branch">├──</span> <span class="file">SKILL.md</span>                              <span class="cmt"># 核心，激活时加载 (~220 行)</span>
+<span class="branch">├──</span> <span class="file">SKILL.md</span>                              <span class="cmt"># core, loaded on activation (~220 lines)</span>
 <span class="branch">├──</span> <span class="file">README.md</span>
 <span class="branch">├──</span> <span class="file">LICENSE</span>                               <span class="cmt"># MIT</span>
-<span class="branch">├──</span> <span class="dir">reference/</span>                            <span class="cmt"># 按需加载的语言指南</span>
+<span class="branch">├──</span> <span class="dir">reference/</span>                            <span class="cmt"># on-demand language guides</span>
 <span class="branch">│   ├──</span> <span class="file">react.md</span> <span class="file">vue.md</span> <span class="file">angular.md</span> ...
 <span class="branch">│   └──</span> <span class="file">architecture-review-guide.md</span> ...
 <span class="branch">├──</span> <span class="dir">assets/</span>
-<span class="branch">│   ├──</span> <span class="file">review-checklist.md</span>              <span class="cmt"># 快速参考</span>
-<span class="branch">│   └──</span> <span class="file">pr-review-template.md</span>            <span class="cmt"># 评论模板</span>
+<span class="branch">│   ├──</span> <span class="file">review-checklist.md</span>              <span class="cmt"># quick reference</span>
+<span class="branch">│   └──</span> <span class="file">pr-review-template.md</span>            <span class="cmt"># PR comment template</span>
 <span class="branch">└──</span> <span class="dir">scripts/</span>
-    <span class="branch">└──</span> <span class="file">pr-analyzer.py</span>                   <span class="cmt"># PR 复杂度分析</span></pre>
+    <span class="branch">└──</span> <span class="file">pr-analyzer.py</span>                   <span class="cmt"># PR complexity analyzer</span></pre>
   </section>
 
   <!-- ═══ SEE ALSO ═══ -->

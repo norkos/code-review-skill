@@ -1,34 +1,34 @@
 # Kotlin / Android Code Review Guide
 
-> Kotlin/Android 代码审查指南，覆盖协程作用域与取消、Flow 陷阱、Compose 重组、空安全、内存泄漏、架构分层与密封类状态建模等核心主题。
+> Kotlin/Android code review guide covering core topics such as coroutine scopes and cancellation, Flow pitfalls, Compose recomposition, null safety, memory leaks, architectural layering, and state modeling with sealed classes.
 
-## 目录
+## Table of Contents
 
-- [协程：作用域与取消](#协程作用域与取消)
-- [Flow 陷阱](#flow-陷阱)
-- [Jetpack Compose 重组](#jetpack-compose-重组)
-- [空安全模式](#空安全模式)
-- [内存泄漏](#内存泄漏)
-- [架构：ViewModel 与 Repository](#架构viewmodel-与-repository)
-- [密封类与状态管理](#密封类与状态管理)
+- [Coroutines: Scopes and Cancellation](#coroutines-scopes-and-cancellation)
+- [Flow Pitfalls](#flow-pitfalls)
+- [Jetpack Compose Recomposition](#jetpack-compose-recomposition)
+- [Null Safety Patterns](#null-safety-patterns)
+- [Memory Leaks](#memory-leaks)
+- [Architecture: ViewModel and Repository](#architecture-viewmodel-and-repository)
+- [Sealed Classes and State Management](#sealed-classes-and-state-management)
 - [Review Checklist](#review-checklist)
 
 ---
 
-## 协程：作用域与取消
+## Coroutines: Scopes and Cancellation
 
-> 📖 通用并发模式和跨语言示例详见 [异步与并发跨语言指南](cross-cutting/async-concurrency-patterns.md)
+> 📖 For general concurrency patterns and cross-language examples, see the [Async & Concurrency Cross-Language Guide](cross-cutting/async-concurrency-patterns.md)
 
-### 避免 GlobalScope
+### Avoid GlobalScope
 
 ```kotlin
-// ❌ GlobalScope 生命周期不受控，Activity/Fragment 销毁后协程仍在运行
+// ❌ GlobalScope's lifecycle is uncontrolled; the coroutine keeps running after the Activity/Fragment is destroyed
 GlobalScope.launch {
     val data = api.fetchData()
     binding.textView.text = data.title // Crash: view destroyed
 }
 
-// ✅ 使用 viewModelScope，ViewModel 清除时自动取消
+// ✅ Use viewModelScope; it's cancelled automatically when the ViewModel is cleared
 class MyViewModel(private val repo: Repository) : ViewModel() {
     fun loadData() {
         viewModelScope.launch {
@@ -38,7 +38,7 @@ class MyViewModel(private val repo: Repository) : ViewModel() {
     }
 }
 
-// ✅ 在 Activity/Fragment 中使用 lifecycleScope
+// ✅ Use lifecycleScope in an Activity/Fragment
 class MyActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,20 +50,20 @@ class MyActivity : AppCompatActivity() {
 }
 ```
 
-### CancellationException 不能吞掉
+### Don't Swallow CancellationException
 
 ```kotlin
-// ❌ 捕获所有异常导致取消信号丢失
+// ❌ Catching all exceptions loses the cancellation signal
 viewModelScope.launch {
     try {
         repo.fetchData()
     } catch (e: Exception) {
-        // CancellationException 被吞掉，协程无法取消
+        // CancellationException is swallowed, so the coroutine can't be cancelled
         showError(e)
     }
 }
 
-// ✅ 重新抛出 CancellationException
+// ✅ Rethrow CancellationException
 viewModelScope.launch {
     try {
         repo.fetchData()
@@ -74,7 +74,7 @@ viewModelScope.launch {
     }
 }
 
-// ✅ 或使用 catch 配合 ensureActive
+// ✅ Or use catch together with ensureActive
 viewModelScope.launch {
     try {
         repo.fetchData()
@@ -85,17 +85,17 @@ viewModelScope.launch {
 }
 ```
 
-### CPU-bound 任务需要检查取消
+### CPU-Bound Tasks Must Check for Cancellation
 
 ```kotlin
-// ❌ CPU 密集计算不响应取消，即使协程已取消也会跑完
+// ❌ CPU-intensive computation doesn't respond to cancellation; it runs to completion even after the coroutine is cancelled
 viewModelScope.launch(Dispatchers.Default) {
     for (item in largeList) {
         heavyComputation(item)
     }
 }
 
-// ✅ 定期检查 isActive 或调用 ensureActive
+// ✅ Periodically check isActive or call ensureActive
 viewModelScope.launch(Dispatchers.Default) {
     for (item in largeList) {
         ensureActive() // Throws CancellationException if cancelled
@@ -103,7 +103,7 @@ viewModelScope.launch(Dispatchers.Default) {
     }
 }
 
-// ✅ 或使用 yield 让出执行权
+// ✅ Or use yield to give up execution
 viewModelScope.launch(Dispatchers.Default) {
     for (item in largeList) {
         yield() // Checks cancellation + yields to other coroutines
@@ -112,15 +112,15 @@ viewModelScope.launch(Dispatchers.Default) {
 }
 ```
 
-### 阻塞操作使用 runInterruptible
+### Use runInterruptible for Blocking Operations
 
 ```kotlin
-// ❌ 在协程中直接调用阻塞 I/O，阻塞线程池线程
+// ❌ Calling blocking I/O directly in a coroutine blocks a thread-pool thread
 viewModelScope.launch(Dispatchers.IO) {
     val result = blockingLibraryCall() // Blocks IO thread
 }
 
-// ✅ 使用 runInterruptible 包装阻塞调用，支持取消中断
+// ✅ Wrap blocking calls with runInterruptible to support cancellation via interruption
 viewModelScope.launch(Dispatchers.IO) {
     val result = runInterruptible {
         blockingLibraryCall() // Interrupted on cancellation
@@ -128,25 +128,25 @@ viewModelScope.launch(Dispatchers.IO) {
 }
 ```
 
-### 正确选择调度器
+### Choose the Right Dispatcher
 
 ```kotlin
-// ❌ CPU 密集任务用了 IO 调度器（线程池过大，浪费资源）
+// ❌ CPU-intensive task on the IO dispatcher (thread pool is too large, wastes resources)
 viewModelScope.launch(Dispatchers.IO) {
     val bitmap = decodeImage(byteArray) // CPU-bound on IO pool
 }
 
-// ✅ CPU 密集用 Default，I/O 操作用 IO
+// ✅ Default for CPU-intensive work, IO for I/O operations
 viewModelScope.launch(Dispatchers.Default) {
     val bitmap = decodeImage(byteArray) // CPU-bound on Default pool
 }
 
-// ❌ IO 操作用了 Default 调度器（线程池太小，容易饥饿）
+// ❌ I/O operation on the Default dispatcher (thread pool is too small, prone to starvation)
 viewModelScope.launch(Dispatchers.Default) {
     val response = okHttpClient.newCall(request).execute() // I/O on Default pool
 }
 
-// ✅ I/O 操作用 IO 调度器
+// ✅ Use the IO dispatcher for I/O operations
 viewModelScope.launch(Dispatchers.IO) {
     val response = okHttpClient.newCall(request).execute()
 }
@@ -155,17 +155,17 @@ viewModelScope.launch(Dispatchers.IO) {
 ### launch vs async
 
 ```kotlin
-// ❌ async 只用于"发个火"，不需要返回值
+// ❌ async used for "fire and forget" with no return value needed
 viewModelScope.launch {
     async { analytics.trackEvent("click") } // Overkill
 }
 
-// ✅ 不需要返回值用 launch
+// ✅ Use launch when no return value is needed
 viewModelScope.launch {
     launch { analytics.trackEvent("click") }
 }
 
-// ✅ 需要返回值且可能并行时用 async
+// ✅ Use async when a return value is needed and work may run in parallel
 viewModelScope.launch {
     val deferredA = async { api.fetchA() }
     val deferredB = async { api.fetchB() }
@@ -173,24 +173,24 @@ viewModelScope.launch {
 }
 ```
 
-### 不要用 Job() 破坏父子关系
+### Don't Break the Parent-Child Relationship with Job()
 
 ```kotlin
-// ❌ Job() 切断了父协程的取消传播
+// ❌ Job() cuts off cancellation propagation from the parent coroutine
 viewModelScope.launch {
     launch(Job()) { // Detached from parent scope!
         importantWork() // Will NOT be cancelled when viewModelScope cancels
     }
 }
 
-// ✅ 保持默认的父子关系
+// ✅ Keep the default parent-child relationship
 viewModelScope.launch {
     launch { // Child of viewModelScope
         importantWork() // Cancelled when viewModelScope cancels
     }
 }
 
-// ✅ 如果确实需要独立生命周期，显式管理并说明原因
+// ✅ If an independent lifecycle is truly needed, manage it explicitly and document why
 class MyManager(private val scope: CoroutineScope) {
     // Independent lifecycle managed by MyManager.shutdown()
     private val managerJob = Job(scope.coroutineContext[Job])
@@ -202,10 +202,10 @@ class MyManager(private val scope: CoroutineScope) {
 }
 ```
 
-### NonCancellable 的正确使用
+### Using NonCancellable Correctly
 
 ```kotlin
-// ❌ 整个协程都包在 withContext(NonCancellable) 中，无法取消
+// ❌ The whole coroutine is wrapped in withContext(NonCancellable), so it can't be cancelled
 viewModelScope.launch {
     withContext(NonCancellable) { // Entire block is uncancellable!
         val data = repo.fetchData() // Cannot be cancelled
@@ -214,7 +214,7 @@ viewModelScope.launch {
     }
 }
 
-// ✅ NonCancellable 只用于清理操作
+// ✅ Use NonCancellable only for cleanup operations
 viewModelScope.launch {
     try {
         val data = repo.fetchData()
@@ -231,12 +231,12 @@ viewModelScope.launch {
 
 ---
 
-## Flow 陷阱
+## Flow Pitfalls
 
-### 冷流与热流混淆
+### Confusing Cold and Hot Flows
 
 ```kotlin
-// ❌ 每次 collect 都重新执行 flow {} 块（冷流特性被误解）
+// ❌ The flow {} block re-executes on every collect (cold-flow behavior misunderstood)
 val userFlow = flow {
     emit(api.fetchUser()) // Called once per collector!
 }
@@ -245,7 +245,7 @@ val userFlow = flow {
 lifecycleScope.launch { userFlow.collect { } }
 lifecycleScope.launch { userFlow.collect { } }
 
-// ✅ 共享数据用 StateFlow/SharedFlow（热流）
+// ✅ Use StateFlow/SharedFlow (hot flows) for shared data
 class MyViewModel(private val repo: Repository) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -259,22 +259,22 @@ class MyViewModel(private val repo: Repository) : ViewModel() {
 // Multiple collectors share the same StateFlow
 ```
 
-### 不要在 flow {} 中切换上下文
+### Don't Switch Context Inside flow {}
 
 ```kotlin
-// ❌ 在 flow builder 中使用 withContext，违反约束
+// ❌ Using withContext inside a flow builder violates the context-preservation constraint
 val dataFlow = flow {
     withContext(Dispatchers.IO) { // IllegalStateException!
         emit(api.fetchData())
     }
 }
 
-// ✅ 使用 flowOn 操作符切换上游上下文
+// ✅ Use the flowOn operator to switch the upstream context
 val dataFlow = flow {
     emit(api.fetchData()) // Runs on IO via flowOn
 }.flowOn(Dispatchers.IO)
 
-// ✅ 或使用 channelFlow / callbackFlow 需要切换时
+// ✅ Or use channelFlow / callbackFlow when switching is required
 val dataFlow = channelFlow {
     withContext(Dispatchers.IO) {
         send(api.fetchData()) // send() is safe in channelFlow
@@ -282,17 +282,17 @@ val dataFlow = channelFlow {
 }
 ```
 
-### collect 需要生命周期感知
+### collect Must Be Lifecycle-Aware
 
 ```kotlin
-// ❌ 在 Activity/Fragment 中 collect 不感知生命周期
+// ❌ collect in an Activity/Fragment without lifecycle awareness
 lifecycleScope.launch {
     viewModel.uiState.collect { state ->
         binding.textView.text = state.title // Crash if view destroyed
     }
 }
 
-// ✅ 在 Fragment 中使用 viewLifecycleOwner.lifecycleScope + repeatOnLifecycle
+// ✅ In a Fragment, use viewLifecycleOwner.lifecycleScope + repeatOnLifecycle
 viewLifecycleOwner.lifecycleScope.launch {
     viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
         viewModel.uiState.collect { state ->
@@ -301,7 +301,7 @@ viewLifecycleOwner.lifecycleScope.launch {
     }
 }
 
-// ✅ 在 Compose 中使用 collectAsStateWithLifecycle
+// ✅ In Compose, use collectAsStateWithLifecycle
 @Composable
 fun MyScreen(viewModel: MyViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -309,10 +309,10 @@ fun MyScreen(viewModel: MyViewModel) {
 }
 ```
 
-### 异常透明性：使用 catch 操作符
+### Exception Transparency: Use the catch Operator
 
 ```kotlin
-// ❌ 在 collect 中 try-catch 处理上游异常
+// ❌ try-catch around collect to handle upstream exceptions
 viewModelScope.launch {
     try {
         dataFlow.collect { data ->
@@ -324,7 +324,7 @@ viewModelScope.launch {
     }
 }
 
-// ✅ 使用 catch 操作符保持异常透明性
+// ✅ Use the catch operator to preserve exception transparency
 viewModelScope.launch {
     dataFlow
         .catch { e -> showError(e) } // Only catches upstream exceptions
@@ -334,20 +334,20 @@ viewModelScope.launch {
 }
 ```
 
-### StateFlow vs SharedFlow 选择
+### Choosing Between StateFlow and SharedFlow
 
 ```kotlin
-// ❌ 用 SharedFlow 模拟 StateFlow，丢失最新值语义
+// ❌ Emulating StateFlow with SharedFlow loses latest-value semantics
 private val _state = MutableSharedFlow<UiState>()
 val state: SharedFlow<UiState> = _state
 
-// ✅ UI 状态用 StateFlow：总是有值、新订阅者立即获得最新值
+// ✅ Use StateFlow for UI state: always has a value, and new subscribers immediately get the latest value
 class MyViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(UiState.Loading)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 }
 
-// ✅ 事件（一次性通知）用 SharedFlow + replay(0)
+// ✅ Use SharedFlow + replay(0) for events (one-time notifications)
 class MyViewModel : ViewModel() {
     private val _navigationEvent = MutableSharedFlow<NavTarget>(extraBufferCapacity = 1)
     val navigationEvent: SharedFlow<NavTarget> = _navigationEvent.asSharedFlow()
@@ -357,19 +357,19 @@ class MyViewModel : ViewModel() {
     }
 }
 
-// ✅ Channel 用于一次性事件（替代方案）
+// ✅ Channel for one-time events (alternative)
 private val _navigationEvent = Channel<NavTarget>(Channel.BUFFERED)
 val navigationEvent = _navigationEvent.receiveAsFlow()
 ```
 
 ---
 
-## Jetpack Compose 重组
+## Jetpack Compose Recomposition
 
-### 不稳定参数导致多余重组
+### Unstable Parameters Cause Extra Recompositions
 
 ```kotlin
-// ❌ 使用不稳定的类作为参数，Compose 无法判断是否变化
+// ❌ Using an unstable class as a parameter, so Compose can't tell whether it changed
 data class UserProfile(
     val name: String,
     val friends: List<String>, // Unstable! List is not @Stable
@@ -380,14 +380,14 @@ fun ProfileCard(profile: UserProfile) { // Recomposes even if profile didn't cha
     Text(profile.name)
 }
 
-// ✅ 使用 @Immutable 标注或使用稳定的集合类型
+// ✅ Annotate with @Immutable or use stable collection types
 @Immutable
 data class UserProfile(
     val name: String,
     val friends: ImmutableList<String>, // kotlinx.collections.immutable
 )
 
-// ✅ 或将不稳定属性提取为单独的参数
+// ✅ Or extract unstable properties into separate parameters
 @Composable
 fun ProfileCard(
     name: String, // Stable: String is primitive
@@ -398,10 +398,10 @@ fun ProfileCard(
 }
 ```
 
-### Lambda 不稳定与记忆化
+### Unstable Lambdas and Memoization
 
 ```kotlin
-// ❌ 每次重组都创建新的 Lambda，导致子组件不必要的重组
+// ❌ A new lambda is created on every recomposition, causing unnecessary child recompositions
 @Composable
 fun MyScreen(viewModel: MyViewModel) {
     LazyColumn {
@@ -414,7 +414,7 @@ fun MyScreen(viewModel: MyViewModel) {
     }
 }
 
-// ✅ 使用 remember 包装 Lambda，或让 ViewModel 暴露稳定回调
+// ✅ Wrap the lambda with remember, or have the ViewModel expose stable callbacks
 @Composable
 fun MyScreen(viewModel: MyViewModel) {
     LazyColumn {
@@ -428,10 +428,10 @@ fun MyScreen(viewModel: MyViewModel) {
 }
 ```
 
-### 使用 derivedStateOf 避免高频率重组
+### Use derivedStateOf to Avoid High-Frequency Recomposition
 
 ```kotlin
-// ❌ 每次滚动都重组整个组件
+// ❌ The whole component recomposes on every scroll
 @Composable
 fun ScrollToTopButton(lazyListState: LazyListState) {
     val showButton = lazyListState.firstVisibleItemIndex > 0 // Recomposes on every scroll
@@ -442,7 +442,7 @@ fun ScrollToTopButton(lazyListState: LazyListState) {
     }
 }
 
-// ✅ 使用 derivedStateOf 只在结果变化时触发重组
+// ✅ Use derivedStateOf to trigger recomposition only when the result changes
 @Composable
 fun ScrollToTopButton(lazyListState: LazyListState) {
     val showButton by remember {
@@ -456,10 +456,10 @@ fun ScrollToTopButton(lazyListState: LazyListState) {
 }
 ```
 
-### 不要在 Composable 函数体中执行副作用
+### Don't Run Side Effects in the Composable Function Body
 
 ```kotlin
-// ❌ 在 Composable 函数体中直接触发副作用，每次重组都会执行
+// ❌ Triggering a side effect directly in the Composable body runs it on every recomposition
 @Composable
 fun MyScreen(userId: String, viewModel: MyViewModel) {
     viewModel.loadUser(userId) // Called on every recomposition!
@@ -467,7 +467,7 @@ fun MyScreen(userId: String, viewModel: MyViewModel) {
     Text(user?.name ?: "Loading...")
 }
 
-// ✅ 使用 LaunchedEffect 在 key 变化时执行副作用
+// ✅ Use LaunchedEffect to run side effects when the key changes
 @Composable
 fun MyScreen(userId: String, viewModel: MyViewModel) {
     LaunchedEffect(userId) {
@@ -477,17 +477,17 @@ fun MyScreen(userId: String, viewModel: MyViewModel) {
     Text(user?.name ?: "Loading...")
 }
 
-// ✅ 一次性初始化用 remember { ... }
+// ✅ Use remember { ... } for one-time initialization
 @Composable
 fun MyScreen(viewModel: MyViewModel) {
     val initialData = remember { viewModel.getInitialData() }
 }
 ```
 
-### 状态提升
+### State Hoisting
 
 ```kotlin
-// ❌ 状态和逻辑耦合在 Composable 内部，无法复用和测试
+// ❌ State and logic coupled inside the Composable, so it can't be reused or tested
 @Composable
 fun ToggleButton() {
     var isChecked by remember { mutableStateOf(false) }
@@ -497,7 +497,7 @@ fun ToggleButton() {
     )
 }
 
-// ✅ 状态提升：调用者控制状态
+// ✅ State hoisting: the caller controls the state
 @Composable
 fun ToggleButton(
     isChecked: Boolean,
@@ -511,7 +511,7 @@ fun ToggleButton(
     )
 }
 
-// ✅ 调用者持有状态
+// ✅ The caller holds the state
 @Composable
 fun ParentScreen() {
     var enabled by rememberSaveable { mutableStateOf(false) }
@@ -524,22 +524,22 @@ fun ParentScreen() {
 
 ---
 
-## 空安全模式
+## Null Safety Patterns
 
-### 避免非空断言 !!
+### Avoid the Non-Null Assertion !!
 
 ```kotlin
-// ❌ 非空断言：如果为 null 直接 NPE
+// ❌ Non-null assertion: throws an NPE immediately if null
 val user = getUser()!!
 val name = user.name!!
 
-// ✅ 安全调用 + 空合并
+// ✅ Safe call + elvis operator
 val name = getUser()?.name ?: "Unknown"
 
-// ✅ requireNotNull 提供有意义的错误信息
+// ✅ requireNotNull provides a meaningful error message
 val user = requireNotNull(getUser()) { "User must not be null at this point" }
 
-// ✅ 提前返回
+// ✅ Early return
 fun process(user: User?) {
     val nonNullUser = user ?: return
     nonNullUser.doSomething()
@@ -549,10 +549,10 @@ fun process(user: User?) {
 ### lateinit vs nullable vs lazy
 
 ```kotlin
-// ❌ lateinit 用于可能为 null 的值（语义不对）
+// ❌ lateinit used for a value that may be null (wrong semantics)
 lateinit var optionalConfig: Config // Might never be set
 
-// ✅ lateinit 用于一定会在使用前初始化的值
+// ✅ lateinit for values guaranteed to be initialized before use
 class MyActivity : AppCompatActivity() {
     lateinit var binding: ActivityMainBinding // Set in onCreate
 
@@ -563,34 +563,34 @@ class MyActivity : AppCompatActivity() {
     }
 }
 
-// ✅ nullable + lateinit 取决于初始化时机
-// lateinit: 生命周期保证在使用前初始化
-// nullable: 不确定是否初始化，需要 null 检查
-// lazy: 确定在首次访问时初始化
+// ✅ nullable vs lateinit vs lazy depends on when initialization happens
+// lateinit: the lifecycle guarantees initialization before use
+// nullable: unclear whether it will be initialized; requires null checks
+// lazy: initialized on first access
 
 class MyViewModel(private val repo: Repository) : ViewModel() {
-    // lazy: 首次访问时初始化，线程安全
+    // lazy: initialized on first access, thread-safe
     val expensiveObject by lazy { ExpensiveObject(repo) }
 
-    // nullable: 可能不会初始化
+    // nullable: may never be initialized
     var cachedData: Data? = null
         private set
 }
 ```
 
-### Java 互操作：平台类型泄漏
+### Java Interop: Leaking Platform Types
 
 ```kotlin
-// ❌ Java 返回平台类型（可能 null），Kotlin 当作非空使用
+// ❌ Java returns a platform type (possibly null), which Kotlin treats as non-null
 // Java:
 // public User getUser() { return null; }
 val name: String = javaService.getUser().name // NPE!
 
-// ✅ 使用可空类型接收 Java 返回值
+// ✅ Receive Java return values with a nullable type
 val user: User? = javaService.getUser()
 val name = user?.name ?: "Unknown"
 
-// ✅ 在 Kotlin 侧包装 Java API，提供安全的类型
+// ✅ Wrap the Java API on the Kotlin side to provide safe types
 class SafeUserService(private val delegate: JavaUserService) {
     fun getUser(): User? = delegate.getUser() // Explicitly nullable
 }
@@ -598,12 +598,12 @@ class SafeUserService(private val delegate: JavaUserService) {
 
 ---
 
-## 内存泄漏
+## Memory Leaks
 
-### 避免在长生命周期协程中捕获 Context/View
+### Avoid Capturing Context/View in Long-Lived Coroutines
 
 ```kotlin
-// ❌ 协程捕获了 Activity Context，Activity 销毁后无法回收
+// ❌ The coroutine captures the Activity Context, so the Activity can't be garbage-collected after it's destroyed
 class MyActivity : AppCompatActivity() {
     fun loadData() {
         // Leaking Activity via coroutine
@@ -615,7 +615,7 @@ class MyActivity : AppCompatActivity() {
     }
 }
 
-// ✅ 使用 viewModelScope + 生命周期感知
+// ✅ Use viewModelScope + lifecycle awareness
 class MyViewModel(private val repo: Repository) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -629,10 +629,10 @@ class MyViewModel(private val repo: Repository) : ViewModel() {
 }
 ```
 
-### 注销监听器
+### Unregister Listeners
 
 ```kotlin
-// ❌ 注册监听器但从不注销
+// ❌ Listener registered but never unregistered
 class MyFragment : Fragment() {
     private val sensorListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) { }
@@ -646,7 +646,7 @@ class MyFragment : Fragment() {
     }
 }
 
-// ✅ 在 onPause/onDestroyView 中注销
+// ✅ Unregister in onPause/onDestroyView
 override fun onResume() {
     super.onResume()
     sensorManager.registerListener(sensorListener, sensor, SensorManager.SENSOR_DELAY_UI)
@@ -658,10 +658,10 @@ override fun onPause() {
 }
 ```
 
-### 取消自定义 CoroutineScope
+### Cancel Custom CoroutineScopes
 
 ```kotlin
-// ❌ 创建 CoroutineScope 但从不取消
+// ❌ CoroutineScope created but never cancelled
 class MyManager(private val scope: CoroutineScope) {
     private val job = SupervisorJob()
     private val managerScope = scope + job + Dispatchers.IO
@@ -677,7 +677,7 @@ class MyManager(private val scope: CoroutineScope) {
     // Never cancelled! job lives forever.
 }
 
-// ✅ 提供关闭方法并取消 Job
+// ✅ Provide a shutdown method that cancels the Job
 class MyManager(private val scope: CoroutineScope) {
     private val job = SupervisorJob()
     private val managerScope = scope + job + Dispatchers.IO
@@ -696,7 +696,7 @@ class MyManager(private val scope: CoroutineScope) {
     }
 }
 
-// ✅ ViewModel 里直接用内置的 viewModelScope，不用自己管生命周期
+// ✅ In a ViewModel, just use the built-in viewModelScope; no need to manage the lifecycle yourself
 class MyViewModel : ViewModel() {
     private val scope = viewModelScope + Dispatchers.IO
     // Automatically cancelled when ViewModel is cleared
@@ -705,12 +705,12 @@ class MyViewModel : ViewModel() {
 
 ---
 
-## 架构：ViewModel 与 Repository
+## Architecture: ViewModel and Repository
 
-### ViewModel 不暴露可变状态
+### ViewModels Should Not Expose Mutable State
 
 ```kotlin
-// ❌ 直接暴露 MutableStateFlow，外部可以随意修改
+// ❌ Exposing MutableStateFlow directly lets outside code modify it freely
 class MyViewModel : ViewModel() {
     val uiState = MutableStateFlow<UiState>(UiState.Loading) // Mutable!
 
@@ -721,7 +721,7 @@ class MyViewModel : ViewModel() {
     }
 }
 
-// ✅ 暴露不可变接口，内部持有可变版本
+// ✅ Expose an immutable interface and keep the mutable version internal
 class MyViewModel(private val repo: Repository) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -734,10 +734,10 @@ class MyViewModel(private val repo: Repository) : ViewModel() {
 }
 ```
 
-### 业务逻辑下沉到 Repository
+### Push Business Logic Down into the Repository
 
 ```kotlin
-// ❌ ViewModel 中包含数据处理和业务规则逻辑
+// ❌ ViewModel contains data processing and business rule logic
 class UserViewModel(private val api: Api) : ViewModel() {
     private val _users = MutableStateFlow<List<User>>(emptyList())
     val users: StateFlow<List<User>> = _users.asStateFlow()
@@ -755,7 +755,7 @@ class UserViewModel(private val api: Api) : ViewModel() {
     }
 }
 
-// ✅ ViewModel 只做状态管理，逻辑下沉到 Repository
+// ✅ ViewModel only manages state; logic is pushed down into the Repository
 class UserRepository(private val api: Api) {
     suspend fun getActiveUsersSorted(): List<User> {
         return api.getUsers()
@@ -777,10 +777,10 @@ class UserViewModel(private val repo: UserRepository) : ViewModel() {
 }
 ```
 
-### 单一数据源（Offline-First）
+### Single Source of Truth (Offline-First)
 
 ```kotlin
-// ❌ ViewModel 直接从网络获取，无缓存，离线不可用
+// ❌ ViewModel fetches directly from the network, with no cache and no offline support
 class MyViewModel(private val api: Api) : ViewModel() {
     fun load() {
         viewModelScope.launch {
@@ -789,7 +789,7 @@ class MyViewModel(private val api: Api) : ViewModel() {
     }
 }
 
-// ✅ Repository 作为单一数据源，先展示本地缓存再更新网络数据
+// ✅ Repository as the single source of truth: show the local cache first, then update with network data
 class MyRepository(
     private val api: Api,
     private val dao: DataDao,
@@ -813,17 +813,17 @@ class MyViewModel(private val repo: MyRepository) : ViewModel() {
 }
 ```
 
-### Use Case 用于复杂业务逻辑
+### Use Cases for Complex Business Logic
 
 ```kotlin
-// ❌ Repository 方法名变成动词短语，职责膨胀
+// ❌ Repository method names turn into verb phrases and responsibilities bloat
 class OrderRepository {
     suspend fun validateAndSubmitOrder(order: Order) { }
     suspend fun calculateOrderTotalWithDiscounts(order: Order): Money { }
     suspend fun checkInventoryAndReserve(items: List<Item>) { }
 }
 
-// ✅ 使用 Use Case 封装复杂业务逻辑，Repository 只做数据访问
+// ✅ Use Use Cases to encapsulate complex business logic; the Repository only handles data access
 class SubmitOrderUseCase(
     private val orderRepo: OrderRepository,
     private val inventoryRepo: InventoryRepository,
@@ -849,12 +849,12 @@ class OrderRepository {
 
 ---
 
-## 密封类与状态管理
+## Sealed Classes and State Management
 
-### UI 状态建模：让不可能的状态无法表达
+### Modeling UI State: Make Impossible States Unrepresentable
 
 ```kotlin
-// ❌ 用 nullable 组合表示状态，可能产生无效组合
+// ❌ Representing state with a combination of nullables can produce invalid combinations
 data class UiState(
     val isLoading: Boolean = false,
     val data: List<Item>? = null,
@@ -863,7 +863,7 @@ data class UiState(
 // Invalid: isLoading=true AND error != null
 // Invalid: data != null AND error != null
 
-// ✅ 使用密封类建模，每种状态互斥
+// ✅ Model with a sealed class so each state is mutually exclusive
 sealed interface UiState {
     data object Loading : UiState
     data class Success(val data: List<Item>) : UiState
@@ -875,7 +875,7 @@ class MyViewModel(private val repo: Repository) : ViewModel() {
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 }
 
-// ✅ Compose 中 exhaustive when
+// ✅ Exhaustive when in Compose
 @Composable
 fun MyScreen(viewModel: MyViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -887,24 +887,24 @@ fun MyScreen(viewModel: MyViewModel) {
 }
 ```
 
-### 导航事件建模
+### Modeling Navigation Events
 
 ```kotlin
-// ❌ 用枚举或字符串表示导航事件，无法携带参数
+// ❌ Representing navigation events with enums or strings can't carry parameters
 sealed class NavEvent {
     object ToDetail : NavEvent()
     object ToSettings : NavEvent()
 }
 // How to pass orderId to ToDetail?
 
-// ✅ 密封类携带类型安全参数
+// ✅ Sealed classes carry type-safe parameters
 sealed interface NavEvent {
     data class ToDetail(val orderId: String) : NavEvent
     data class ToSettings(val tab: SettingsTab) : NavEvent
     data class ToProfile(val userId: String, val mode: ProfileMode) : NavEvent
 }
 
-// ✅ 处理导航事件
+// ✅ Handling navigation events
 navController.handleNavEvent { event ->
     when (event) {
         is NavEvent.ToDetail -> navController.navigate(DetailRoute(event.orderId))
@@ -914,10 +914,10 @@ navController.handleNavEvent { event ->
 }
 ```
 
-### 网络结果包装
+### Wrapping Network Results
 
 ```kotlin
-// ❌ 用 Result? 或 nullable 表示网络结果，丢失错误信息
+// ❌ Representing network results with Result? or nullable loses error information
 suspend fun fetchUser(id: String): User? {
     return try {
         api.getUser(id)
@@ -926,7 +926,7 @@ suspend fun fetchUser(id: String): User? {
     }
 }
 
-// ✅ 使用密封类包装网络结果
+// ✅ Wrap network results in a sealed class
 sealed interface NetworkResult<out T> {
     data class Success<T>(val data: T) : NetworkResult<T>
     data class Error(val code: Int, val message: String) : NetworkResult<Nothing>
@@ -946,7 +946,7 @@ suspend fun fetchUser(id: String): NetworkResult<User> {
     }
 }
 
-// ✅ 在 ViewModel 中映射为 UI 状态
+// ✅ Map to UI state in the ViewModel
 fun loadUser(id: String) {
     viewModelScope.launch {
         when (val result = repo.fetchUser(id)) {
@@ -962,57 +962,57 @@ fun loadUser(id: String) {
 
 ## Review Checklist
 
-### 协程
+### Coroutines
 
-- [ ] 不使用 `GlobalScope`，使用 `viewModelScope` / `lifecycleScope`
-- [ ] `CancellationException` 被正确重新抛出，未被吞掉
-- [ ] CPU 密集任务使用 `Dispatchers.Default`，I/O 操作使用 `Dispatchers.IO`
-- [ ] 长时间运行的 CPU 任务定期调用 `ensureActive()` 或 `yield()`
-- [ ] 阻塞调用使用 `runInterruptible` 包装
-- [ ] 不使用 `Job()` 破坏父子协程关系
-- [ ] `NonCancellable` 仅用于 `finally` 块中的清理操作
-- [ ] 不需要返回值用 `launch`，需要并行结果用 `async`
+- [ ] No `GlobalScope`; use `viewModelScope` / `lifecycleScope`
+- [ ] `CancellationException` is correctly rethrown, not swallowed
+- [ ] CPU-intensive tasks use `Dispatchers.Default`; I/O operations use `Dispatchers.IO`
+- [ ] Long-running CPU tasks periodically call `ensureActive()` or `yield()`
+- [ ] Blocking calls are wrapped with `runInterruptible`
+- [ ] `Job()` is not used in a way that breaks the parent-child coroutine relationship
+- [ ] `NonCancellable` is used only for cleanup in `finally` blocks
+- [ ] `launch` when no return value is needed; `async` when parallel results are needed
 
 ### Flow
 
-- [ ] 理解冷流（`flow {}`）与热流（`StateFlow`/`SharedFlow`）的区别
-- [ ] 不在 `flow {}` builder 中使用 `withContext`，使用 `flowOn` 操作符
-- [ ] `collect` 配合 `repeatOnLifecycle` 或 `collectAsStateWithLifecycle` 使用
-- [ ] 异常处理使用 `.catch` 操作符而非 `try-catch` 包裹 `collect`
-- [ ] UI 状态用 `StateFlow`，一次性事件用 `SharedFlow` 或 `Channel`
+- [ ] The difference between cold flows (`flow {}`) and hot flows (`StateFlow`/`SharedFlow`) is understood
+- [ ] No `withContext` inside a `flow {}` builder; use the `flowOn` operator
+- [ ] `collect` is used with `repeatOnLifecycle` or `collectAsStateWithLifecycle`
+- [ ] Exceptions are handled with the `.catch` operator rather than `try-catch` around `collect`
+- [ ] `StateFlow` for UI state; `SharedFlow` or `Channel` for one-time events
 
 ### Compose
 
-- [ ] Composable 参数使用稳定类型，避免不必要重组
-- [ ] Lambda 参数使用 `remember` 包装，避免每次重组创建新实例
-- [ ] 派生状态使用 `derivedStateOf` 避免高频率重组
-- [ ] 副作用使用 `LaunchedEffect` / `SideEffect`，不在函数体中直接调用
-- [ ] 状态正确提升（state hoisting），Composable 无状态且可复用
+- [ ] Composable parameters use stable types to avoid unnecessary recomposition
+- [ ] Lambda parameters are wrapped with `remember` to avoid creating new instances on every recomposition
+- [ ] Derived state uses `derivedStateOf` to avoid high-frequency recomposition
+- [ ] Side effects use `LaunchedEffect` / `SideEffect`, not direct calls in the function body
+- [ ] State is hoisted correctly (state hoisting); Composables are stateless and reusable
 
-### 空安全
+### Null Safety
 
-- [ ] 不滥用非空断言 `!!`，使用安全调用 `?.` 或空合并 `?:`
-- [ ] `lateinit` 仅用于生命周期保证初始化的属性
-- [ ] Java 互操作返回值使用可空类型接收
-- [ ] `lazy` 用于首次访问时初始化的昂贵对象
+- [ ] Non-null assertion `!!` is not abused; use safe call `?.` or elvis `?:`
+- [ ] `lateinit` is used only for properties whose initialization is guaranteed by the lifecycle
+- [ ] Java interop return values are received with nullable types
+- [ ] `lazy` is used for expensive objects initialized on first access
 
-### 内存泄漏
+### Memory Leaks
 
-- [ ] 协程不捕获 `Context` / `View` 等短生命周期对象
-- [ ] 监听器在 `onPause` / `onDestroyView` 中正确注销
-- [ ] 自定义 `CoroutineScope` 提供取消机制
-- [ ] 单例不持有 `Activity` / `Fragment` 引用
+- [ ] Coroutines don't capture short-lived objects such as `Context` / `View`
+- [ ] Listeners are properly unregistered in `onPause` / `onDestroyView`
+- [ ] Custom `CoroutineScope`s provide a cancellation mechanism
+- [ ] Singletons don't hold `Activity` / `Fragment` references
 
-### 架构
+### Architecture
 
-- [ ] ViewModel 不暴露 `MutableStateFlow` / `MutableLiveData`，使用不可变接口
-- [ ] 业务逻辑下沉到 Repository / Use Case，ViewModel 只做状态管理
-- [ ] 实现 offline-first：Repository 作为单一数据源
-- [ ] 复杂业务逻辑封装为独立的 Use Case 类
+- [ ] ViewModels don't expose `MutableStateFlow` / `MutableLiveData`; use immutable interfaces
+- [ ] Business logic is pushed down into Repositories / Use Cases; ViewModels only manage state
+- [ ] Offline-first is implemented: the Repository is the single source of truth
+- [ ] Complex business logic is encapsulated in dedicated Use Case classes
 
-### 密封类与状态
+### Sealed Classes and State
 
-- [ ] UI 状态使用密封类建模，让不可能的状态无法表达
-- [ ] 导航事件使用密封类携带类型安全参数
-- [ ] 网络请求结果使用密封类包装，不丢失错误信息
-- [ ] `when` 表达式覆盖所有分支（exhaustive check）
+- [ ] UI state is modeled with sealed classes, making impossible states unrepresentable
+- [ ] Navigation events use sealed classes carrying type-safe parameters
+- [ ] Network request results are wrapped in sealed classes without losing error information
+- [ ] `when` expressions cover all branches (exhaustive check)
